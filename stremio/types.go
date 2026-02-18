@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Addon struct {
@@ -129,13 +132,19 @@ func (m MetaBasic) Text() string {
 
 // Stream
 
-func (s *Stream) TorrentName() string {
-	if s.Title != "" {
-		return strings.TrimSpace(strings.TrimPrefix(stringUpToFirst(s.Title, '\n'), "📄"))
-	}
+var sizeRegex = regexp.MustCompile("💾 (\\d+(?:\\.\\d+)? [a-zA-Z]{2})")
+var sizeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
+func (s *Stream) TitleDescription() string {
 	if s.Description != "" {
-		return strings.TrimSpace(strings.TrimPrefix(stringUpToFirst(s.Description, '\n'), "📄"))
+		return s.Description
+	}
+	return s.Title
+}
+
+func (s *Stream) TorrentName() string {
+	if s.TitleDescription() != "" {
+		return strings.TrimSpace(strings.TrimPrefix(stringUpToFirst(s.TitleDescription(), '\n'), "📄"))
 	}
 
 	if s.Hints.Filename != "" {
@@ -145,12 +154,26 @@ func (s *Stream) TorrentName() string {
 	return ""
 }
 
+func (s *Stream) Size() ByteSize {
+	if s.Hints.VideoSize != 0 {
+		return ByteSize(s.Hints.VideoSize)
+	}
+
+	if submatches := sizeRegex.FindStringSubmatch(s.TitleDescription()); len(submatches) == 1 {
+		if size, err := ParseByteSize(submatches[0]); err == nil {
+			return size
+		}
+	}
+
+	return 0
+}
+
 func (s *Stream) FilterValue() string {
 	return s.TorrentName()
 }
 
 func (s *Stream) Text() string {
-	return s.TorrentName()
+	return fmt.Sprintf("%s %s", s.TorrentName(), sizeStyle.Render(fmt.Sprintf("[%s]", s.Size())))
 }
 
 func stringUpToFirst(str string, char byte) string {
