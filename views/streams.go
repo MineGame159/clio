@@ -11,9 +11,12 @@ import (
 )
 
 type Streams struct {
-	App  *core.App
-	Kind string
-	Meta stremio.MetaBasic
+	App    *core.App
+	Kind   string
+	Result stremio.SearchResult
+
+	Season  uint
+	Episode uint
 
 	list list.Model
 }
@@ -31,18 +34,17 @@ func (s *Streams) Init() tea.Cmd {
 
 	// Get streams
 	return func() tea.Msg {
-		var provider *stremio.StreamProvider
-
-		for streamProvider := range s.App.StreamProviders() {
-			if streamProvider.SupportsId(s.Meta.Id) {
-				provider = streamProvider
-				break
-			}
-		}
+		provider := s.App.StreamProviderForId(s.Result.Id)
 
 		if provider != nil {
-			if streams, err := provider.Search(s.Kind, s.Meta.Id); err == nil {
-				return streams
+			if s.Season == 0 && s.Episode == 0 {
+				if streams, err := provider.Search(s.Kind, s.Result.Id); err == nil {
+					return streams
+				}
+			} else {
+				if streams, err := provider.SearchEpisode(s.Kind, s.Result.Id, s.Season, s.Episode); err == nil {
+					return streams
+				}
 			}
 		}
 
@@ -65,7 +67,7 @@ func (s *Streams) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if s.list.FilterState() != list.Filtering {
 				if stream, ok := s.list.SelectedItem().(*Stream); ok {
-					core.OpenMpv(s.Meta.Name, stream.Url)
+					core.OpenMpv(s.Result.Name, stream.Url)
 					return s, tea.Quit
 				}
 			}

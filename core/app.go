@@ -50,6 +50,38 @@ func (a *App) StreamProviders() iter.Seq[*stremio.StreamProvider] {
 	}
 }
 
+func (a *App) StreamProviderForId(id string) *stremio.StreamProvider {
+	for streamProvider := range a.StreamProviders() {
+		if streamProvider.SupportsId(id) {
+			return streamProvider
+		}
+	}
+
+	return nil
+}
+
+func (a *App) MetaProviders() iter.Seq[*stremio.MetaProvider] {
+	return func(yield func(*stremio.MetaProvider) bool) {
+		for _, addon := range a.Addons {
+			for _, metaProvider := range addon.MetaProviders {
+				if !yield(metaProvider) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (a *App) MetaProviderForId(id string) *stremio.MetaProvider {
+	for metaProvider := range a.MetaProviders() {
+		if metaProvider.SupportsId(id) {
+			return metaProvider
+		}
+	}
+
+	return nil
+}
+
 func (a *App) Push(model tea.Model) {
 	a.views = append(a.views, View{model, false})
 }

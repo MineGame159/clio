@@ -7,8 +7,21 @@ import (
 	"strings"
 )
 
+type Addon struct {
+	Name string
+
+	Catalogs        []*Catalog
+	MetaProviders   []*MetaProvider
+	StreamProviders []*StreamProvider
+
+	Url string
+}
+
+// Load
+
 type manifest struct {
 	Name            string            `json:"name"`
+	IdPrefixes      []string          `json:"idPrefixes"`
 	Resources       []json.RawMessage `json:"resources,omitempty"`
 	Catalogs        []Catalog         `json:"catalogs,omitempty"`
 	StreamProviders []StreamProvider  `json:"streams,omitempty"`
@@ -39,6 +52,13 @@ func Load(url string) (*Addon, error) {
 	}
 
 	for _, rawResource := range man.Resources {
+		if string(rawResource) == "\"meta\"" {
+			addon.MetaProviders = append(addon.MetaProviders, &MetaProvider{
+				Addon:      addon,
+				IdPrefixes: man.IdPrefixes,
+			})
+		}
+
 		var resource Extra
 		if err := json.Unmarshal(rawResource, &resource); err != nil {
 			continue
@@ -47,32 +67,40 @@ func Load(url string) (*Addon, error) {
 		switch resource.Name {
 		case "catalog":
 			var catalog Catalog
+
 			if err := json.Unmarshal(rawResource, &catalog); err == nil {
+				catalog.Addon = addon
 				addon.Catalogs = append(addon.Catalogs, &catalog)
 			}
+
 		case "stream":
 			var streamProvider StreamProvider
+
 			if err := json.Unmarshal(rawResource, &streamProvider); err == nil {
+				streamProvider.Addon = addon
+
+				if len(streamProvider.IdPrefixes) == 0 {
+					streamProvider.IdPrefixes = man.IdPrefixes
+				}
+
 				addon.StreamProviders = append(addon.StreamProviders, &streamProvider)
 			}
 		}
 	}
 
 	for _, catalog := range man.Catalogs {
+		catalog.Addon = addon
 		addon.Catalogs = append(addon.Catalogs, &catalog)
 	}
 
 	for _, streamProvider := range man.StreamProviders {
-		addon.StreamProviders = append(addon.StreamProviders, &streamProvider)
-	}
-
-	// Store reference to addon in resources
-	for _, catalog := range addon.Catalogs {
-		catalog.Addon = addon
-	}
-
-	for _, streamProvider := range addon.StreamProviders {
 		streamProvider.Addon = addon
+
+		if len(streamProvider.IdPrefixes) == 0 {
+			streamProvider.IdPrefixes = man.IdPrefixes
+		}
+
+		addon.StreamProviders = append(addon.StreamProviders, &streamProvider)
 	}
 
 	return addon, nil

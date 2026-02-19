@@ -4,43 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 )
-
-type Addon struct {
-	Name string
-
-	Catalogs        []*Catalog
-	StreamProviders []*StreamProvider
-
-	Url string
-}
-
-type Catalog struct {
-	Addon *Addon `json:"-"`
-
-	Type   string  `json:"type"`
-	Id     string  `json:"id"`
-	Name   string  `json:"name"`
-	Extras []Extra `json:"extra"`
-}
 
 type StreamProvider struct {
 	Addon *Addon `json:"-"`
 
 	Types      []string `json:"types"`
 	IdPrefixes []string `json:"idPrefixes"`
-}
-
-type Extra struct {
-	Name string `json:"name"`
-}
-
-type MetaBasic struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
 }
 
 type Stream struct {
@@ -55,41 +27,6 @@ type BehaviorHints struct {
 	BingeGroup string `json:"bingeGroup"`
 	Filename   string `json:"filename,omitempty"`
 	VideoSize  uint64 `json:"videoSize,omitempty"`
-}
-
-// Catalog
-
-func (c *Catalog) HasExtra(name string) bool {
-	for _, extra := range c.Extras {
-		if extra.Name == name {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (c *Catalog) Search(query string) ([]MetaBasic, error) {
-	res, err := http.Get(fmt.Sprintf("%s/catalog/%s/%s/search=%s.json", c.Addon.Url, c.Type, c.Id, url.QueryEscape(query)))
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var body struct{ Metas []MetaBasic }
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		return nil, err
-	}
-
-	return body.Metas, nil
-}
-
-func (c *Catalog) FilterValue() string {
-	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Type, c.Name)
-}
-
-func (c *Catalog) Text() string {
-	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Type, c.Name)
 }
 
 // StreamProvider
@@ -119,14 +56,19 @@ func (s *StreamProvider) Search(kind string, id string) ([]Stream, error) {
 	return body.Streams, nil
 }
 
-// MetaBasic
+func (s *StreamProvider) SearchEpisode(kind string, id string, season uint, episode uint) ([]Stream, error) {
+	res, err := http.Get(fmt.Sprintf("%s/stream/%s/%s:%d:%d.json", s.Addon.Url, kind, id, season, episode))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
 
-func (m MetaBasic) FilterValue() string {
-	return m.Name
-}
+	var body struct{ Streams []Stream }
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return nil, err
+	}
 
-func (m MetaBasic) Text() string {
-	return m.Name
+	return body.Streams, nil
 }
 
 // Stream

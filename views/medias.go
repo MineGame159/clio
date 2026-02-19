@@ -64,8 +64,8 @@ func (m *Medias) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.search.Blur()
 
 				return m, func() tea.Msg {
-					if metas, err := m.Catalog.Search(m.search.Value()); err == nil {
-						return metas
+					if results, err := m.Catalog.Search(m.search.Value()); err == nil {
+						return results
 					}
 
 					return nil
@@ -73,17 +73,31 @@ func (m *Medias) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if m.list.FilterState() != list.Filtering {
-				if meta, ok := m.list.SelectedItem().(stremio.MetaBasic); ok {
-					m.App.Push(&Streams{App: m.App, Kind: m.Catalog.Type, Meta: meta})
+				if meta, ok := m.list.SelectedItem().(stremio.SearchResult); ok {
+					if m.Catalog.Type == "movie" {
+						m.App.Push(&Streams{
+							App:     m.App,
+							Kind:    m.Catalog.Type,
+							Result:  meta,
+							Season:  0,
+							Episode: 0,
+						})
+					} else {
+						m.App.Push(&Seasons{
+							App:    m.App,
+							Kind:   m.Catalog.Type,
+							Result: meta,
+						})
+					}
 				}
 			}
 		}
 
-	case []stremio.MetaBasic:
+	case []stremio.SearchResult:
 		items := make([]list.Item, len(msg))
 
-		for i, meta := range msg {
-			items[i] = meta
+		for i, result := range msg {
+			items[i] = result
 		}
 
 		cmd := m.list.SetItems(items)
