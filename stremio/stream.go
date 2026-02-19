@@ -84,12 +84,12 @@ func (s *Stream) TitleDescription() string {
 }
 
 func (s *Stream) TorrentName() string {
-	if s.TitleDescription() != "" {
-		return strings.TrimSpace(strings.TrimPrefix(stringUpToFirst(s.TitleDescription(), '\n'), "📄"))
-	}
-
 	if s.Hints.Filename != "" {
 		return stringUpToLast(s.Hints.Filename, '.')
+	}
+
+	if s.TitleDescription() != "" {
+		return strings.TrimSpace(strings.TrimPrefix(stringUpToFirst(s.TitleDescription(), '\n'), "📄"))
 	}
 
 	return ""

@@ -15,7 +15,21 @@ type MetaProvider struct {
 }
 
 type Meta struct {
-	Videos []Video `json:"videos"`
+	Id string `json:"id"`
+
+	Name        string `json:"name"`
+	Description string `json:"description"`
+
+	Poster      string   `json:"poster"`
+	Cast        []string `json:"cast"`
+	Rating      string   `json:"imdbRation"`
+	ReleaseInfo string   `json:"releaseInfo"`
+	Awards      string   `json:"awards"`
+	Genres      []string `json:"genre"`
+
+	Runtime string
+	Status  string
+	Videos  []Video `json:"videos"`
 }
 
 type Video struct {
