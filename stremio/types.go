@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-
-	"github.com/charmbracelet/lipgloss"
 )
 
 type Addon struct {
@@ -54,8 +52,9 @@ type Stream struct {
 }
 
 type BehaviorHints struct {
-	Filename  string `json:"filename,omitempty"`
-	VideoSize uint64 `json:"videoSize,omitempty"`
+	BingeGroup string `json:"bingeGroup"`
+	Filename   string `json:"filename,omitempty"`
+	VideoSize  uint64 `json:"videoSize,omitempty"`
 }
 
 // Catalog
@@ -132,8 +131,8 @@ func (m MetaBasic) Text() string {
 
 // Stream
 
-var sizeRegex = regexp.MustCompile("💾 (\\d+(?:\\.\\d+)? [a-zA-Z]{2})")
-var sizeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+var resolutionRegex = regexp.MustCompile("\\D(\\d{3,4}[pP])\\W")
+var sizeRegex = regexp.MustCompile("\\D(\\d+(?:\\.\\d+)? [a-zA-Z]{2})\\W")
 
 func (s *Stream) TitleDescription() string {
 	if s.Description != "" {
@@ -154,26 +153,26 @@ func (s *Stream) TorrentName() string {
 	return ""
 }
 
+func (s *Stream) Resolution() string {
+	if submatches := resolutionRegex.FindStringSubmatch(s.TitleDescription()); len(submatches) == 2 {
+		return submatches[1]
+	}
+
+	return ""
+}
+
 func (s *Stream) Size() ByteSize {
 	if s.Hints.VideoSize != 0 {
 		return ByteSize(s.Hints.VideoSize)
 	}
 
-	if submatches := sizeRegex.FindStringSubmatch(s.TitleDescription()); len(submatches) == 1 {
-		if size, err := ParseByteSize(submatches[0]); err == nil {
+	if submatches := sizeRegex.FindStringSubmatch(s.TitleDescription()); len(submatches) == 2 {
+		if size, err := ParseByteSize(submatches[1]); err == nil {
 			return size
 		}
 	}
 
 	return 0
-}
-
-func (s *Stream) FilterValue() string {
-	return s.TorrentName()
-}
-
-func (s *Stream) Text() string {
-	return fmt.Sprintf("%s %s", s.TorrentName(), sizeStyle.Render(fmt.Sprintf("[%s]", s.Size())))
 }
 
 func stringUpToFirst(str string, char byte) string {

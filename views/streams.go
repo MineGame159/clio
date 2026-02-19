@@ -3,6 +3,8 @@ package views
 import (
 	"clio/core"
 	"clio/stremio"
+	"cmp"
+	"slices"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,7 +20,7 @@ type Streams struct {
 
 func (s *Streams) Init() tea.Cmd {
 	// List
-	l := list.New([]list.Item{}, SimpleDelegate{}, 0, 0)
+	l := list.New([]list.Item{}, StreamDelegate{}, 0, 0)
 
 	l.DisableQuitKeybindings()
 	l.SetShowTitle(false)
@@ -62,7 +64,7 @@ func (s *Streams) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			if s.list.FilterState() != list.Filtering {
-				if stream, ok := s.list.SelectedItem().(*stremio.Stream); ok {
+				if stream, ok := s.list.SelectedItem().(*Stream); ok {
 					core.OpenMpv(s.Meta.Name, stream.Url)
 					return s, tea.Quit
 				}
@@ -74,9 +76,31 @@ func (s *Streams) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		for _, stream := range msg {
 			if stream.Url != "" {
-				items = append(items, &stream)
+				bingeGroupCount := 0
+
+				if stream.Hints.BingeGroup == "" {
+					bingeGroupCount = 1
+				} else {
+					for _, stream2 := range msg {
+						if stream2.Hints.BingeGroup == stream.Hints.BingeGroup {
+							bingeGroupCount++
+						}
+					}
+				}
+
+				items = append(items, &Stream{
+					Name:            stream.TorrentName(),
+					Resolution:      stream.Resolution(),
+					Size:            stream.Size(),
+					VideosInTorrent: bingeGroupCount,
+					Url:             stream.Url,
+				})
 			}
 		}
+
+		slices.SortFunc(items, func(a, b list.Item) int {
+			return cmp.Compare(b.(*Stream).Size, a.(*Stream).Size)
+		})
 
 		cmd := s.list.SetItems(items)
 		s.list.Select(0)

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	itemStyle         = lipgloss.NewStyle().Align(lipgloss.Center).PaddingLeft(3)
+	normalItemStyle   = lipgloss.NewStyle().Align(lipgloss.Center).PaddingLeft(3)
 	selectedItemStyle = lipgloss.NewStyle().Align(lipgloss.Center).PaddingLeft(1).Foreground(core.LightGreen)
 )
 
@@ -25,7 +25,7 @@ type SimpleItem interface {
 type SimpleDelegate struct{}
 
 func (s SimpleDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	render := itemStyle.Render
+	render := normalItemStyle.Render
 
 	if index == m.Index() {
 		render = func(s ...string) string {
