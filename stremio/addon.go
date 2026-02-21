@@ -1,9 +1,9 @@
 package stremio
 
 import (
+	"clio/core"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"strings"
 )
 
@@ -34,14 +34,8 @@ func Load(url string) (*Addon, error) {
 	}
 
 	// Parse manifest
-	res, err := http.Get(url)
+	man, err := core.GetJson[manifest](url)
 	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var man manifest
-	if err := json.NewDecoder(res.Body).Decode(&man); err != nil {
 		return nil, err
 	}
 

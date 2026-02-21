@@ -92,8 +92,8 @@ func (e *Episodes) HandleEvent(event any) {
 					Catalog:      e.Catalog,
 					SearchResult: e.SearchResult,
 					Season:       e.Season,
-					Episode:      item.Number,
-					EpisodeName:  item.Name,
+					Episode:      item.Episode,
+					EpisodeName:  item.ActualTitle(),
 				})
 			}
 
@@ -118,12 +118,12 @@ func episodeWidget(item stremio.Video, selected bool) ui.Widget {
 	}
 
 	return &ui.Paragraph{Spans: []ui.Span{
-		{fmt.Sprintf("%d", item.Number), ui.Fg(color.Silver)},
+		{fmt.Sprintf("%d", item.Episode), ui.Fg(color.Silver)},
 		{" - ", ui.Fg(color.Gray)},
-		{item.Name, style},
+		{item.ActualTitle(), style},
 	}}
 }
 
 func episodeText(item stremio.Video) string {
-	return fmt.Sprintf("%d - %s", item.Number, item.Name)
+	return fmt.Sprintf("%d - %s", item.Episode, item.ActualTitle())
 }

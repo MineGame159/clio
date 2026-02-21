@@ -1,10 +1,9 @@
 package stremio
 
 import (
-	"encoding/json"
+	"clio/core"
 	"fmt"
 	"iter"
-	"net/http"
 	"slices"
 	"strings"
 )
@@ -34,9 +33,11 @@ type Meta struct {
 }
 
 type Video struct {
-	Season uint   `json:"season"`
-	Number uint   `json:"number"`
-	Name   string `json:"name"`
+	Season  uint `json:"season"`
+	Episode uint `json:"episode"`
+
+	Title string `json:"title"`
+	Name  string `json:"name"`
 }
 
 // MetaProvider
@@ -52,18 +53,14 @@ func (m *MetaProvider) SupportsId(id string) bool {
 }
 
 func (m *MetaProvider) Get(kind string, id string) (Meta, error) {
-	res, err := http.Get(fmt.Sprintf("%s/meta/%s/%s.json", m.Addon.Url, kind, id))
+	metaUrl := fmt.Sprintf("%s/meta/%s/%s.json", m.Addon.Url, kind, id)
+
+	res, err := core.GetJson[struct{ Meta Meta }](metaUrl)
 	if err != nil {
 		return Meta{}, err
 	}
-	defer res.Body.Close()
 
-	var body struct{ Meta Meta }
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		return Meta{}, err
-	}
-
-	return body.Meta, nil
+	return res.Meta, nil
 }
 
 // Meta
@@ -88,4 +85,14 @@ func (m *Meta) Episodes(season uint) iter.Seq[Video] {
 			}
 		}
 	}
+}
+
+// Video
+
+func (v *Video) ActualTitle() string {
+	if v.Title != "" {
+		return v.Title
+	}
+
+	return v.Name
 }

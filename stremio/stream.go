@@ -2,9 +2,7 @@ package stremio
 
 import (
 	"clio/core"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 )
@@ -43,33 +41,25 @@ func (s *StreamProvider) SupportsId(id string) bool {
 }
 
 func (s *StreamProvider) Search(kind string, id string) ([]Stream, error) {
-	res, err := http.Get(fmt.Sprintf("%s/stream/%s/%s.json", s.Addon.Url, kind, id))
+	searchUrl := fmt.Sprintf("%s/stream/%s/%s.json", s.Addon.Url, kind, id)
+
+	res, err := core.GetJson[struct{ Streams []Stream }](searchUrl)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
 
-	var body struct{ Streams []Stream }
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		return nil, err
-	}
-
-	return body.Streams, nil
+	return res.Streams, nil
 }
 
 func (s *StreamProvider) SearchEpisode(kind string, id string, season uint, episode uint) ([]Stream, error) {
-	res, err := http.Get(fmt.Sprintf("%s/stream/%s/%s:%d:%d.json", s.Addon.Url, kind, id, season, episode))
+	searchUrl := fmt.Sprintf("%s/stream/%s/%s:%d:%d.json", s.Addon.Url, kind, id, season, episode)
+
+	res, err := core.GetJson[struct{ Streams []Stream }](searchUrl)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
 
-	var body struct{ Streams []Stream }
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		return nil, err
-	}
-
-	return body.Streams, nil
+	return res.Streams, nil
 }
 
 // Stream

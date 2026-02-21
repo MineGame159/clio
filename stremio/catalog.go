@@ -1,9 +1,8 @@
 package stremio
 
 import (
-	"encoding/json"
+	"clio/core"
 	"fmt"
-	"net/http"
 	"net/url"
 )
 
@@ -42,16 +41,12 @@ func (c *Catalog) HasExtra(name string) bool {
 }
 
 func (c *Catalog) Search(query string) ([]SearchResult, error) {
-	res, err := http.Get(fmt.Sprintf("%s/catalog/%s/%s/search=%s.json", c.Addon.Url, c.Type, c.Id, url.QueryEscape(query)))
+	searchUrl := fmt.Sprintf("%s/catalog/%s/%s/search=%s.json", c.Addon.Url, c.Type, c.Id, url.QueryEscape(query))
+
+	res, err := core.GetJson[struct{ Metas []SearchResult }](searchUrl)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
 
-	var body struct{ Metas []SearchResult }
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		return nil, err
-	}
-
-	return body.Metas, nil
+	return res.Metas, nil
 }

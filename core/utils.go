@@ -1,7 +1,11 @@
 package core
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"iter"
+	"net/http"
 	"strings"
 	"unicode"
 )
@@ -42,4 +46,36 @@ func Count[T any](it iter.Seq[T]) uint {
 	}
 
 	return count
+}
+
+func GetJson[T any](url string) (T, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		var empty T
+		return empty, err
+	}
+
+	req.Header.Set("User-Agent", "clio")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		var empty T
+		return empty, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		var empty T
+		return empty, errors.New(fmt.Sprintf("request failed with status code: %d '%s'", res.StatusCode, res.Status))
+	}
+
+	var body T
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		var empty T
+		return empty, err
+	}
+
+	return body, nil
 }
