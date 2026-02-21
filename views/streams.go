@@ -4,9 +4,7 @@ import (
 	"clio/core"
 	"clio/stremio"
 	"clio/ui"
-	"cmp"
 	"fmt"
-	"slices"
 
 	"github.com/gdamore/tcell/v3"
 	"github.com/gdamore/tcell/v3/color"
@@ -62,23 +60,15 @@ func (s *Streams) Widgets() []ui.Widget {
 		provider := s.Ctx.StreamProviderForId(s.SearchResult.Id)
 
 		if provider != nil {
-			var streams []stremio.Stream
-
 			if s.EpisodeName != "" {
-				if streams2, err := provider.SearchEpisode(s.Catalog.Type, s.SearchResult.Id, s.Season, s.Episode); err == nil {
-					streams = streams2
+				if streams, err := provider.SearchEpisode(s.Catalog.Type, s.SearchResult.Id, s.Season, s.Episode); err == nil {
+					s.Stack.Post(streams)
 				}
 			} else {
-				if streams2, err := provider.Search(s.Catalog.Type, s.SearchResult.Id); err == nil {
-					streams = streams2
+				if streams, err := provider.Search(s.Catalog.Type, s.SearchResult.Id); err == nil {
+					s.Stack.Post(streams)
 				}
 			}
-
-			slices.SortFunc(streams, func(a, b stremio.Stream) int {
-				return cmp.Compare(b.Size(), a.Size())
-			})
-
-			s.Stack.Post(streams)
 		}
 	}()
 
