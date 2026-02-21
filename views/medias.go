@@ -69,7 +69,7 @@ func (m *Medias) HandleEvent(event any) {
 				m.list.SetItems(nil)
 
 				go func() {
-					if results, err := m.Catalog.Search(m.input.Value); err == nil {
+					if results, err := m.Catalog.Search(m.input.Value()); err == nil {
 						m.Stack.Post(results)
 					}
 				}()

@@ -87,7 +87,7 @@ func (s *Streams) Widgets() []ui.Widget {
 		Placeholder:      "Search streams",
 		PlaceholderStyle: ui.Fg(color.Gray),
 		OnChange: func(value string) {
-			s.list.Filter(ui.FilterFn(s.input.Value, streamText))
+			s.list.Filter(ui.FilterFn(value, streamText))
 		},
 	}
 

@@ -69,7 +69,7 @@ func (s *Seasons) Widgets() []ui.Widget {
 		Placeholder:      "Search seasons",
 		PlaceholderStyle: ui.Fg(color.Gray),
 		OnChange: func(value string) {
-			s.list.Filter(ui.FilterFn(s.input.Value, seasonText))
+			s.list.Filter(ui.FilterFn(value, seasonText))
 		},
 	}
 

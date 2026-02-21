@@ -65,7 +65,7 @@ func (e *Episodes) Widgets() []ui.Widget {
 		Placeholder:      "Search episodes",
 		PlaceholderStyle: ui.Fg(color.Gray),
 		OnChange: func(value string) {
-			e.list.Filter(ui.FilterFn(e.input.Value, episodeText))
+			e.list.Filter(ui.FilterFn(value, episodeText))
 		},
 	}
 
