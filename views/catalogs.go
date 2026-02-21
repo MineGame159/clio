@@ -1,69 +1,71 @@
 package views
 
 import (
-	"clio/core"
 	"clio/stremio"
+	"clio/ui"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gdamore/tcell/v3"
+	"github.com/gdamore/tcell/v3/color"
 )
 
 type Catalogs struct {
-	App *core.App
+	Stack *Stack
+	Ctx   *stremio.Context
 
-	list list.Model
+	list *ui.List[*stremio.Catalog]
 }
 
-func (c *Catalogs) Init() tea.Cmd {
-	var items []list.Item
+func (c *Catalogs) Title() string {
+	return "Catalogs"
+}
 
-	for catalog := range c.App.Catalogs() {
+func (c *Catalogs) Keys() []Key {
+	return []Key{
+		{"Esc", "close"},
+		{"Enter", "open"},
+	}
+}
+
+func (c *Catalogs) Widgets() []ui.Widget {
+	c.list = &ui.List[*stremio.Catalog]{
+		ItemDisplayFn: ui.SimpleItemDisplayFn(catalogText, ui.Fg(color.Lime)),
+		ItemHeight:    1,
+		SelectedStr:   "│ ",
+		SelectedStyle: ui.Fg(color.Lime),
+	}
+
+	var items []*stremio.Catalog
+
+	for catalog := range c.Ctx.Catalogs() {
 		if catalog.HasExtra("search") {
 			items = append(items, catalog)
 		}
 	}
 
-	l := list.New(items, SimpleDelegate{}, 0, 0)
+	c.list.SetItems(items)
+	c.list.Focus()
 
-	l.DisableQuitKeybindings()
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.Padding(1, 1, 0, 1)
-
-	c.list = l
-
-	return nil
+	return []ui.Widget{c.list}
 }
 
-func (c *Catalogs) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return c, tea.Quit
-
-		case tea.KeyEscape:
-			if c.list.FilterState() == list.Unfiltered {
-				return c, c.App.Pop()
+func (c *Catalogs) HandleEvent(event any) {
+	switch event := event.(type) {
+	case *tcell.EventKey:
+		switch event.Key() {
+		case tcell.KeyEnter:
+			if item, ok := c.list.Selected(); ok {
+				c.Stack.Push(&Medias{
+					Stack:   c.Stack,
+					Ctx:     c.Ctx,
+					Catalog: item,
+				})
 			}
 
-		case tea.KeyEnter:
-			c.App.Push(&Medias{
-				App:     c.App,
-				Catalog: c.list.SelectedItem().(*stremio.Catalog),
-			})
+		default:
 		}
-
-	case tea.WindowSizeMsg:
-		c.list.SetSize(msg.Width, msg.Height)
 	}
-
-	var cmd tea.Cmd
-	c.list, cmd = c.list.Update(msg)
-
-	return c, cmd
 }
 
-func (c *Catalogs) View() string {
-	return c.list.View()
+func catalogText(item *stremio.Catalog) string {
+	return item.FullName()
 }

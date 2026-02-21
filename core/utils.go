@@ -1,30 +1,9 @@
 package core
 
 import (
+	"iter"
 	"strings"
 	"unicode"
-
-	"github.com/charmbracelet/lipgloss"
-)
-
-const (
-	Gray   = lipgloss.Color("0")
-	Red    = lipgloss.Color("1")
-	Green  = lipgloss.Color("2")
-	Yellow = lipgloss.Color("3")
-	Blue   = lipgloss.Color("4")
-	Purple = lipgloss.Color("5")
-	Cyan   = lipgloss.Color("6")
-	White  = lipgloss.Color("7")
-
-	LightGray   = lipgloss.Color("8")
-	LightRed    = lipgloss.Color("9")
-	LightGreen  = lipgloss.Color("10")
-	LightYellow = lipgloss.Color("11")
-	LightBlue   = lipgloss.Color("12")
-	LightPurple = lipgloss.Color("13")
-	LightCyan   = lipgloss.Color("14")
-	LightWhite  = lipgloss.Color("15")
 )
 
 func Capitalize(input string) string {
@@ -53,4 +32,14 @@ func Capitalize(input string) string {
 	}
 
 	return b.String()
+}
+
+func Count[T any](it iter.Seq[T]) uint {
+	count := uint(0)
+
+	for range it {
+		count++
+	}
+
+	return count
 }

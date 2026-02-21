@@ -1,14 +1,11 @@
 package main
 
 import (
-	"clio/core"
 	"clio/stremio"
 	"clio/views"
 	"encoding/json"
 	"os"
 	"path"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Config struct {
@@ -32,9 +29,10 @@ func main() {
 	if err := json.NewDecoder(configFile).Decode(&config); err != nil {
 		panic(err.Error())
 	}
+	stack := views.NewStack()
 
-	// Create app
-	app := core.NewApp()
+	// Create context
+	ctx := &stremio.Context{}
 
 	// Load addons
 	for _, url := range config.Addons {
@@ -44,16 +42,15 @@ func main() {
 			continue
 		}
 
-		app.Addons = append(app.Addons, addon)
+		ctx.Addons = append(ctx.Addons, addon)
 	}
 
 	// Push catalogs view
-	app.Push(&views.Catalogs{App: app})
+	stack.Push(&views.Catalogs{
+		Stack: stack,
+		Ctx:   ctx,
+	})
 
-	// Run program
-	p := tea.NewProgram(app, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
-		panic(err.Error())
-	}
+	// Run application
+	stack.Run()
 }

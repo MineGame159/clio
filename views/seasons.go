@@ -3,107 +3,142 @@ package views
 import (
 	"clio/core"
 	"clio/stremio"
+	"clio/ui"
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gdamore/tcell/v3"
+	"github.com/gdamore/tcell/v3/color"
 )
 
 type Seasons struct {
-	App    *core.App
-	Kind   string
-	Result stremio.SearchResult
+	Stack *Stack
+	Ctx   *stremio.Context
 
-	list list.Model
+	Catalog      *stremio.Catalog
+	SearchResult stremio.SearchResult
+
+	input *ui.Input
+	list  *ui.List[Season]
 }
 
-func (s *Seasons) Init() tea.Cmd {
-	l := list.New([]list.Item{}, SimpleDelegate{}, 0, 0)
+type Season struct {
+	Number   uint
+	Episodes uint
+}
 
-	l.DisableQuitKeybindings()
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.Padding(1, 1, 0, 1)
+func (s *Seasons) Title() string {
+	return fmt.Sprintf("Seasons of '%s'", s.SearchResult.Name)
+}
 
-	s.list = l
+func (s *Seasons) Keys() []Key {
+	keys := []Key{{"Esc", "close"}}
 
-	// Get meta
-	return func() tea.Msg {
-		provider := s.App.MetaProviderForId(s.Result.Id)
+	if s.input.Focused() {
+		keys = append(keys, Key{"Enter", "search"})
+	} else {
+		keys = append(keys, Key{"Enter", "open"})
+		keys = append(keys, Key{"Tab", "search"})
+	}
+
+	return keys
+}
+
+func (s *Seasons) Widgets() []ui.Widget {
+	// List
+	s.list = &ui.List[Season]{
+		ItemDisplayFn: seasonWidget,
+		ItemHeight:    1,
+		SelectedStr:   "│ ",
+		SelectedStyle: ui.Fg(color.Lime),
+	}
+
+	s.list.Focus()
+
+	go func() {
+		provider := s.Ctx.MetaProviderForId(s.SearchResult.Id)
 
 		if provider != nil {
-			if meta, err := provider.Get(s.Kind, s.Result.Id); err == nil {
-				return meta
+			if meta, err := provider.Get(s.Catalog.Type, s.SearchResult.Id); err == nil {
+				s.Stack.Post(meta)
 			}
 		}
+	}()
 
-		return nil
+	// Input
+	s.input = &ui.Input{
+		Placeholder:      "Search seasons",
+		PlaceholderStyle: ui.Fg(color.Gray),
+		OnChange: func(value string) {
+			s.list.Filter(ui.FilterFn(s.input.Value, seasonText))
+		},
+	}
+
+	// Root
+	return []ui.Widget{
+		ui.LeftMargin(s.input, 2),
+		&ui.HSeparator{Runes: ui.Rounded},
+		s.list,
 	}
 }
 
-func (s *Seasons) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return s, tea.Quit
-
-		case tea.KeyEscape:
-			if s.list.FilterState() == list.Unfiltered {
-				return s, s.App.Pop()
+func (s *Seasons) HandleEvent(event any) {
+	switch event := event.(type) {
+	case *tcell.EventKey:
+		switch event.Key() {
+		case tcell.KeyEnter:
+			if s.input.Focused() {
+				s.input.Blur()
+				s.list.Focus()
+			} else if item, ok := s.list.Selected(); ok {
+				s.Stack.Push(&Episodes{
+					Stack:        s.Stack,
+					Ctx:          s.Ctx,
+					Catalog:      s.Catalog,
+					SearchResult: s.SearchResult,
+					Season:       item.Number,
+				})
 			}
 
-		case tea.KeyEnter:
-			if s.list.FilterState() != list.Filtering {
-				if season, ok := s.list.SelectedItem().(Season); ok {
-					s.App.Push(&Episodes{
-						App:    s.App,
-						Kind:   s.Kind,
-						Result: s.Result,
-						Season: uint(season),
-					})
-				}
+		case tcell.KeyTab:
+			if s.list.Focused() {
+				s.input.Focus()
+				s.list.Blur()
 			}
+
+		default:
 		}
 
 	case stremio.Meta:
-		seasons := msg.Seasons()
-		items := make([]list.Item, seasons)
+		var seasons []Season
 
-		for i := range seasons {
-			items[i] = Season(i)
+		for _, number := range event.Seasons() {
+			seasons = append(seasons, Season{
+				Number:   number,
+				Episodes: core.Count(event.Episodes(number)),
+			})
 		}
 
-		cmd := s.list.SetItems(items)
-		s.list.Select(0)
+		s.list.SetItems(seasons)
 
-		// No idea, don't ask
-		s.list.SetSize(s.list.Width(), s.list.Height())
+		if len(seasons) > 0 && seasons[0].Number == 0 {
+			s.list.Select(1)
+		}
+	}
+}
 
-		return s, cmd
-
-	case tea.WindowSizeMsg:
-		s.list.SetSize(msg.Width, msg.Height)
+func seasonWidget(item Season, selected bool) ui.Widget {
+	style := tcell.StyleDefault
+	if selected {
+		style = ui.Fg(color.Lime)
 	}
 
-	var cmd tea.Cmd
-	s.list, cmd = s.list.Update(msg)
-
-	return s, cmd
+	return &ui.Paragraph{Spans: []ui.Span{
+		{"Season ", ui.Fg(color.Silver)},
+		{fmt.Sprintf("%d", item.Number), style},
+		{fmt.Sprintf(" [%d episodes]", item.Episodes), ui.Fg(color.Gray)},
+	}}
 }
 
-func (s *Seasons) View() string {
-	return s.list.View()
-}
-
-// Season
-
-type Season uint
-
-func (s Season) FilterValue() string {
-	return s.Text()
-}
-
-func (s Season) Text() string {
-	return fmt.Sprintf("Season %d", s)
+func seasonText(item Season) string {
+	return fmt.Sprintf("Season %d", item.Number)
 }

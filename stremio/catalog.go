@@ -27,6 +27,10 @@ type SearchResult struct {
 
 // Catalog
 
+func (c *Catalog) FullName() string {
+	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Type, c.Name)
+}
+
 func (c *Catalog) HasExtra(name string) bool {
 	for _, extra := range c.Extras {
 		if extra.Name == name {
@@ -50,22 +54,4 @@ func (c *Catalog) Search(query string) ([]SearchResult, error) {
 	}
 
 	return body.Metas, nil
-}
-
-func (c *Catalog) FilterValue() string {
-	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Type, c.Name)
-}
-
-func (c *Catalog) Text() string {
-	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Type, c.Name)
-}
-
-// MetaBasic
-
-func (m SearchResult) FilterValue() string {
-	return m.Name
-}
-
-func (m SearchResult) Text() string {
-	return m.Name
 }

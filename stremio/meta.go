@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"iter"
 	"net/http"
+	"slices"
 	"strings"
 )
 
@@ -67,14 +68,16 @@ func (m *MetaProvider) Get(kind string, id string) (Meta, error) {
 
 // Meta
 
-func (m *Meta) Seasons() uint {
-	count := uint(0)
+func (m *Meta) Seasons() []uint {
+	var seasons []uint
 
 	for _, video := range m.Videos {
-		count = max(count, video.Season+1)
+		if !slices.Contains(seasons, video.Season) {
+			seasons = append(seasons, video.Season)
+		}
 	}
 
-	return count
+	return seasons
 }
 
 func (m *Meta) Episodes(season uint) iter.Seq[Video] {

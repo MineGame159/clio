@@ -3,125 +3,155 @@ package views
 import (
 	"clio/core"
 	"clio/stremio"
+	"clio/ui"
 	"cmp"
+	"fmt"
 	"slices"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gdamore/tcell/v3"
+	"github.com/gdamore/tcell/v3/color"
 )
 
 type Streams struct {
-	App    *core.App
-	Kind   string
-	Result stremio.SearchResult
+	Stack *Stack
+	Ctx   *stremio.Context
 
-	Season  uint
-	Episode uint
+	Catalog      *stremio.Catalog
+	SearchResult stremio.SearchResult
+	Season       uint
+	Episode      uint
+	EpisodeName  string
 
-	list list.Model
+	input *ui.Input
+	list  *ui.List[stremio.Stream]
 }
 
-func (s *Streams) Init() tea.Cmd {
+func (s *Streams) Title() string {
+	if s.EpisodeName != "" {
+		return fmt.Sprintf("Streams for '%s - S%02dE%02d - %s'", s.SearchResult.Name, s.Season, s.Episode, s.EpisodeName)
+	}
+
+	return fmt.Sprintf("Streams for '%s'", s.SearchResult.Name)
+}
+
+func (s *Streams) Keys() []Key {
+	keys := []Key{{"Esc", "close"}}
+
+	if s.input.Focused() {
+		keys = append(keys, Key{"Enter", "search"})
+	} else {
+		keys = append(keys, Key{"Enter", "play"})
+		keys = append(keys, Key{"Tab", "search"})
+	}
+
+	return keys
+}
+
+func (s *Streams) Widgets() []ui.Widget {
 	// List
-	l := list.New([]list.Item{}, StreamDelegate{}, 0, 0)
+	s.list = &ui.List[stremio.Stream]{
+		ItemDisplayFn: streamWidget,
+		ItemHeight:    2,
+		SelectedStr:   "│ ",
+		SelectedStyle: ui.Fg(color.Lime),
+	}
 
-	l.DisableQuitKeybindings()
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.Padding(1, 1, 0, 1)
+	s.list.Focus()
 
-	s.list = l
-
-	// Get streams
-	return func() tea.Msg {
-		provider := s.App.StreamProviderForId(s.Result.Id)
+	go func() {
+		provider := s.Ctx.StreamProviderForId(s.SearchResult.Id)
 
 		if provider != nil {
-			if s.Season == 0 && s.Episode == 0 {
-				if streams, err := provider.Search(s.Kind, s.Result.Id); err == nil {
-					return streams
+			var streams []stremio.Stream
+
+			if s.EpisodeName != "" {
+				if streams2, err := provider.SearchEpisode(s.Catalog.Type, s.SearchResult.Id, s.Season, s.Episode); err == nil {
+					streams = streams2
 				}
 			} else {
-				if streams, err := provider.SearchEpisode(s.Kind, s.Result.Id, s.Season, s.Episode); err == nil {
-					return streams
+				if streams2, err := provider.Search(s.Catalog.Type, s.SearchResult.Id); err == nil {
+					streams = streams2
 				}
 			}
-		}
 
-		return nil
+			slices.SortFunc(streams, func(a, b stremio.Stream) int {
+				return cmp.Compare(b.Size(), a.Size())
+			})
+
+			s.Stack.Post(streams)
+		}
+	}()
+
+	// Input
+	s.input = &ui.Input{
+		Placeholder:      "Search streams",
+		PlaceholderStyle: ui.Fg(color.Gray),
+		OnChange: func(value string) {
+			s.list.Filter(ui.FilterFn(s.input.Value, streamText))
+		},
+	}
+
+	// Root
+	return []ui.Widget{
+		ui.LeftMargin(s.input, 2),
+		&ui.HSeparator{Runes: ui.Rounded},
+		s.list,
 	}
 }
 
-func (s *Streams) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return s, tea.Quit
-
-		case tea.KeyEscape:
-			if s.list.FilterState() == list.Unfiltered {
-				return s, s.App.Pop()
-			}
-
-		case tea.KeyEnter:
-			if s.list.FilterState() != list.Filtering {
-				if stream, ok := s.list.SelectedItem().(*Stream); ok {
-					core.OpenMpv(s.Result.Name, stream.Url)
-					return s, tea.Quit
+func (s *Streams) HandleEvent(event any) {
+	switch event := event.(type) {
+	case *tcell.EventKey:
+		switch event.Key() {
+		case tcell.KeyEnter:
+			if s.input.Focused() {
+				s.input.Blur()
+				s.list.Focus()
+			} else if item, ok := s.list.Selected(); ok {
+				if s.EpisodeName != "" {
+					core.OpenMpv(fmt.Sprintf("%s - S%02dE%02d - %s", s.SearchResult.Name, s.Season, s.Episode, s.EpisodeName), item.Url)
+				} else {
+					core.OpenMpv(s.SearchResult.Name, item.Url)
 				}
+
+				s.Stack.Stop()
 			}
+
+		case tcell.KeyTab:
+			if s.list.Focused() {
+				s.input.Focus()
+				s.list.Blur()
+			}
+
+		default:
 		}
 
 	case []stremio.Stream:
-		items := make([]list.Item, 0, len(msg))
-
-		for _, stream := range msg {
-			if stream.Url != "" {
-				bingeGroupCount := 0
-
-				if stream.Hints.BingeGroup == "" {
-					bingeGroupCount = 1
-				} else {
-					for _, stream2 := range msg {
-						if stream2.Hints.BingeGroup == stream.Hints.BingeGroup {
-							bingeGroupCount++
-						}
-					}
-				}
-
-				items = append(items, &Stream{
-					Name:            stream.TorrentName(),
-					Resolution:      stream.Resolution(),
-					Size:            stream.Size(),
-					VideosInTorrent: bingeGroupCount,
-					Url:             stream.Url,
-				})
-			}
-		}
-
-		slices.SortFunc(items, func(a, b list.Item) int {
-			return cmp.Compare(b.(*Stream).Size, a.(*Stream).Size)
-		})
-
-		cmd := s.list.SetItems(items)
-		s.list.Select(0)
-
-		// No idea, don't ask
-		s.list.SetSize(s.list.Width(), s.list.Height())
-
-		return s, cmd
-
-	case tea.WindowSizeMsg:
-		s.list.SetSize(msg.Width, msg.Height)
+		s.list.SetItems(event)
 	}
-
-	var cmd tea.Cmd
-	s.list, cmd = s.list.Update(msg)
-
-	return s, cmd
 }
 
-func (s *Streams) View() string {
-	return s.list.View()
+func streamWidget(item stremio.Stream, selected bool) ui.Widget {
+	style := tcell.StyleDefault
+	if selected {
+		style = ui.Fg(color.Lime)
+	}
+
+	spans := []ui.Span{{item.TorrentName() + "\n", style}}
+
+	resolution := item.Resolution()
+	if resolution != "" {
+		spans = append(spans, ui.Span{Text: resolution, Style: ui.Fg(color.Gray)})
+	}
+
+	if len(spans) > 1 {
+		spans = append(spans, ui.Span{Text: ", ", Style: ui.Fg(color.Silver)})
+	}
+	spans = append(spans, ui.Span{Text: item.Size().String(), Style: ui.Fg(color.Gray)})
+
+	return &ui.Paragraph{Spans: spans}
+}
+
+func streamText(item stremio.Stream) string {
+	return item.TorrentName()
 }

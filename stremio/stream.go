@@ -1,6 +1,7 @@
 package stremio
 
 import (
+	"clio/core"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -103,13 +104,13 @@ func (s *Stream) Resolution() string {
 	return ""
 }
 
-func (s *Stream) Size() ByteSize {
+func (s *Stream) Size() core.ByteSize {
 	if s.Hints.VideoSize != 0 {
-		return ByteSize(s.Hints.VideoSize)
+		return core.ByteSize(s.Hints.VideoSize)
 	}
 
 	if submatches := sizeRegex.FindStringSubmatch(s.TitleDescription()); len(submatches) == 2 {
-		if size, err := ParseByteSize(submatches[1]); err == nil {
+		if size, err := core.ParseByteSize(submatches[1]); err == nil {
 			return size
 		}
 	}

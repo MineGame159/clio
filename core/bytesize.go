@@ -1,4 +1,4 @@
-package stremio
+package core
 
 import (
 	"errors"

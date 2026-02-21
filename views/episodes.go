@@ -1,116 +1,129 @@
 package views
 
 import (
-	"clio/core"
 	"clio/stremio"
+	"clio/ui"
 	"fmt"
+	"slices"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gdamore/tcell/v3"
+	"github.com/gdamore/tcell/v3/color"
 )
 
 type Episodes struct {
-	App    *core.App
-	Kind   string
-	Result stremio.SearchResult
-	Season uint
+	Stack *Stack
+	Ctx   *stremio.Context
 
-	list list.Model
+	Catalog      *stremio.Catalog
+	SearchResult stremio.SearchResult
+	Season       uint
+
+	input *ui.Input
+	list  *ui.List[stremio.Video]
 }
 
-func (e *Episodes) Init() tea.Cmd {
-	l := list.New([]list.Item{}, SimpleDelegate{}, 0, 0)
+func (e *Episodes) Title() string {
+	return fmt.Sprintf("Episodes of '%s - S%02d'", e.SearchResult.Name, e.Season)
+}
 
-	l.DisableQuitKeybindings()
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.Padding(1, 1, 0, 1)
+func (e *Episodes) Keys() []Key {
+	keys := []Key{{"Esc", "close"}}
 
-	e.list = l
+	if e.input.Focused() {
+		keys = append(keys, Key{"Enter", "search"})
+	} else {
+		keys = append(keys, Key{"Enter", "open"})
+		keys = append(keys, Key{"Tab", "search"})
+	}
 
-	// Get meta
-	return func() tea.Msg {
-		provider := e.App.MetaProviderForId(e.Result.Id)
+	return keys
+}
+
+func (e *Episodes) Widgets() []ui.Widget {
+	// List
+	e.list = &ui.List[stremio.Video]{
+		ItemDisplayFn: episodeWidget,
+		ItemHeight:    1,
+		SelectedStr:   "│ ",
+		SelectedStyle: ui.Fg(color.Lime),
+	}
+
+	e.list.Focus()
+
+	go func() {
+		provider := e.Ctx.MetaProviderForId(e.SearchResult.Id)
 
 		if provider != nil {
-			if meta, err := provider.Get(e.Kind, e.Result.Id); err == nil {
-				return meta
+			if meta, err := provider.Get(e.Catalog.Type, e.SearchResult.Id); err == nil {
+				e.Stack.Post(meta)
 			}
 		}
+	}()
 
-		return nil
+	// Input
+	e.input = &ui.Input{
+		Placeholder:      "Search episodes",
+		PlaceholderStyle: ui.Fg(color.Gray),
+		OnChange: func(value string) {
+			e.list.Filter(ui.FilterFn(e.input.Value, episodeText))
+		},
+	}
+
+	// Root
+	return []ui.Widget{
+		ui.LeftMargin(e.input, 2),
+		&ui.HSeparator{Runes: ui.Rounded},
+		e.list,
 	}
 }
 
-func (e *Episodes) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return e, tea.Quit
-
-		case tea.KeyEscape:
-			if e.list.FilterState() == list.Unfiltered {
-				return e, e.App.Pop()
+func (e *Episodes) HandleEvent(event any) {
+	switch event := event.(type) {
+	case *tcell.EventKey:
+		switch event.Key() {
+		case tcell.KeyEnter:
+			if e.input.Focused() {
+				e.input.Blur()
+				e.list.Focus()
+			} else if item, ok := e.list.Selected(); ok {
+				e.Stack.Push(&Streams{
+					Stack:        e.Stack,
+					Ctx:          e.Ctx,
+					Catalog:      e.Catalog,
+					SearchResult: e.SearchResult,
+					Season:       e.Season,
+					Episode:      item.Number,
+					EpisodeName:  item.Name,
+				})
 			}
 
-		case tea.KeyEnter:
-			if e.list.FilterState() != list.Filtering {
-				if episode, ok := e.list.SelectedItem().(Episode); ok {
-					e.App.Push(&Streams{
-						App:     e.App,
-						Kind:    e.Kind,
-						Result:  e.Result,
-						Season:  e.Season,
-						Episode: episode.Number,
-					})
-				}
+		case tcell.KeyTab:
+			if e.list.Focused() {
+				e.input.Focus()
+				e.list.Blur()
 			}
+
+		default:
 		}
 
 	case stremio.Meta:
-		var items []list.Item
+		e.list.SetItems(slices.Collect(event.Episodes(e.Season)))
+	}
+}
 
-		for video := range msg.Episodes(e.Season) {
-			items = append(items, Episode{
-				Number: video.Number,
-				Name:   video.Name,
-			})
-		}
-
-		cmd := e.list.SetItems(items)
-		e.list.Select(0)
-
-		// No idea, don't ask
-		e.list.SetSize(e.list.Width(), e.list.Height())
-
-		return e, cmd
-
-	case tea.WindowSizeMsg:
-		e.list.SetSize(msg.Width, msg.Height)
+func episodeWidget(item stremio.Video, selected bool) ui.Widget {
+	style := tcell.StyleDefault
+	if selected {
+		style = ui.Fg(color.Lime)
 	}
 
-	var cmd tea.Cmd
-	e.list, cmd = e.list.Update(msg)
-
-	return e, cmd
+	return &ui.Paragraph{Spans: []ui.Span{
+		{fmt.Sprintf("%d", item.Number), ui.Fg(color.Silver)},
+		{" - ", ui.Fg(color.Gray)},
+		{item.Name, style},
+	}}
 }
 
-func (e *Episodes) View() string {
-	return e.list.View()
-}
-
-// Episode
-
-type Episode struct {
-	Number uint
-	Name   string
-}
-
-func (e Episode) FilterValue() string {
-	return e.Name
-}
-
-func (e Episode) Text() string {
-	return fmt.Sprintf("%d - %s", e.Number, e.Name)
+func episodeText(item stremio.Video) string {
+	return fmt.Sprintf("%d - %s", item.Number, item.Name)
 }

@@ -1,131 +1,116 @@
 package views
 
 import (
-	"clio/core"
 	"clio/stremio"
+	"clio/ui"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/gdamore/tcell/v3"
+	"github.com/gdamore/tcell/v3/color"
 )
 
 type Medias struct {
-	App     *core.App
+	Stack *Stack
+	Ctx   *stremio.Context
+
 	Catalog *stremio.Catalog
 
-	search textinput.Model
-	list   list.Model
+	input *ui.Input
+	list  *ui.List[stremio.SearchResult]
 }
 
-func (m *Medias) Init() tea.Cmd {
-	// Search
-	t := textinput.New()
+func (m *Medias) Title() string {
+	return m.Catalog.FullName()
+}
 
-	t.Placeholder = "Search catalog"
-	t.Focus()
+func (m *Medias) Keys() []Key {
+	keys := []Key{{"Esc", "close"}}
 
-	m.search = t
+	if m.input.Focused() {
+		keys = append(keys, Key{"Enter", "search"})
+	} else {
+		keys = append(keys, Key{"Enter", "open"})
+		keys = append(keys, Key{"Tab", "search"})
+	}
 
+	return keys
+}
+
+func (m *Medias) Widgets() []ui.Widget {
 	// List
-	l := list.New([]list.Item{}, SimpleDelegate{}, 0, 0)
+	m.list = &ui.List[stremio.SearchResult]{
+		ItemDisplayFn: ui.SimpleItemDisplayFn(searchResultText, ui.Fg(color.Lime)),
+		ItemHeight:    1,
+		SelectedStr:   "│ ",
+		SelectedStyle: ui.Fg(color.Lime),
+	}
 
-	l.DisableQuitKeybindings()
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	l.Styles.HelpStyle = list.DefaultStyles().HelpStyle.Padding(1, 1, 0, 1)
+	// Input
+	m.input = &ui.Input{
+		Placeholder:      "Search catalog",
+		PlaceholderStyle: ui.Fg(color.Gray),
+	}
 
-	m.list = l
+	m.input.Focus()
 
-	return nil
+	// Root
+	return []ui.Widget{
+		ui.LeftMargin(m.input, 2),
+		&ui.HSeparator{Runes: ui.Rounded},
+		m.list,
+	}
 }
 
-func (m *Medias) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, tea.Quit
+func (m *Medias) HandleEvent(event any) {
+	switch event := event.(type) {
+	case *tcell.EventKey:
+		switch event.Key() {
+		case tcell.KeyEnter:
+			if m.input.Focused() {
+				m.list.SetItems(nil)
 
-		case tea.KeyEscape:
-			if !m.search.Focused() && m.list.FilterState() == list.Unfiltered {
-				return m, m.App.Pop()
-			}
-
-		case tea.KeyTab:
-			if m.search.Focused() {
-				m.search.Blur()
-			} else {
-				m.search.Focus()
-			}
-
-		case tea.KeyEnter:
-			if m.search.Focused() {
-				m.search.Blur()
-
-				return m, func() tea.Msg {
-					if results, err := m.Catalog.Search(m.search.Value()); err == nil {
-						return results
+				go func() {
+					if results, err := m.Catalog.Search(m.input.Value); err == nil {
+						m.Stack.Post(results)
 					}
+				}()
 
-					return nil
+				m.input.Blur()
+				m.list.Focus()
+			} else if item, ok := m.list.Selected(); ok {
+				if m.Catalog.Type == "movie" {
+					m.Stack.Push(&Streams{
+						Stack:        m.Stack,
+						Ctx:          m.Ctx,
+						Catalog:      m.Catalog,
+						SearchResult: item,
+						Season:       0,
+						Episode:      0,
+						EpisodeName:  "",
+					})
+				} else {
+					m.Stack.Push(&Seasons{
+						Stack:        m.Stack,
+						Ctx:          m.Ctx,
+						Catalog:      m.Catalog,
+						SearchResult: item,
+					})
 				}
 			}
 
-			if m.list.FilterState() != list.Filtering {
-				if meta, ok := m.list.SelectedItem().(stremio.SearchResult); ok {
-					if m.Catalog.Type == "movie" {
-						m.App.Push(&Streams{
-							App:     m.App,
-							Kind:    m.Catalog.Type,
-							Result:  meta,
-							Season:  0,
-							Episode: 0,
-						})
-					} else {
-						m.App.Push(&Seasons{
-							App:    m.App,
-							Kind:   m.Catalog.Type,
-							Result: meta,
-						})
-					}
-				}
+		case tcell.KeyTab:
+			if m.list.Focused() {
+				m.input.Focus()
+				m.list.Blur()
 			}
+
+		default:
 		}
 
 	case []stremio.SearchResult:
-		items := make([]list.Item, len(msg))
-
-		for i, result := range msg {
-			items[i] = result
-		}
-
-		cmd := m.list.SetItems(items)
-		m.list.Select(0)
-
-		// No idea, don't ask
-		m.list.SetSize(m.list.Width(), m.list.Height())
-
-		return m, cmd
-
-	case tea.WindowSizeMsg:
-		m.search.Width = msg.Width - len(m.search.Prompt) - 1
-		m.list.SetSize(msg.Width, msg.Height-2)
+		m.list.SetItems(event)
 	}
-
-	var cmd tea.Cmd
-
-	if m.search.Focused() {
-		m.search, cmd = m.search.Update(msg)
-	} else {
-		m.list, cmd = m.list.Update(msg)
-	}
-
-	return m, cmd
 }
 
-var bottomBorderStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), false, false, true, false).BorderForeground(core.White)
-
-func (m *Medias) View() string {
-	return lipgloss.JoinVertical(lipgloss.Top, bottomBorderStyle.Width(m.list.Width()).Render(m.search.View()), m.list.View())
+func searchResultText(item stremio.SearchResult) string {
+	return item.Name
 }
