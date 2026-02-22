@@ -3,6 +3,8 @@ package views
 import (
 	"clio/stremio"
 	"clio/ui"
+	"image"
+	"net/http"
 
 	"github.com/gdamore/tcell/v3"
 	"github.com/gdamore/tcell/v3/color"
@@ -19,8 +21,11 @@ type Medias struct {
 	input *ui.Input
 	list  *ui.List[stremio.SearchResult]
 
+	metaImage     *ui.Image
 	metaParagraph *ui.Paragraph
 }
+
+type clearImage struct{}
 
 func (m *Medias) Title() string {
 	return m.Catalog.FullName()
@@ -57,6 +62,9 @@ func (m *Medias) Widgets() []ui.Widget {
 	}
 
 	// Meta
+	m.metaImage = &ui.Image{}
+	m.metaImage.SetMaxSize(1, 1)
+
 	m.metaParagraph = &ui.Paragraph{}
 	m.metaParagraph.SetMaxWidth(100)
 
@@ -71,7 +79,15 @@ func (m *Medias) Widgets() []ui.Widget {
 			Children: []ui.Widget{
 				m.list,
 				&ui.VSeparator{Runes: ui.Rounded},
-				m.metaParagraph,
+				&ui.Container{
+					Direction:          ui.Vertical,
+					PrimaryAlignment:   ui.Stretch,
+					SecondaryAlignment: ui.Stretch,
+					Children: []ui.Widget{
+						m.metaImage,
+						m.metaParagraph,
+					},
+				},
 			},
 		},
 	}
@@ -158,6 +174,14 @@ func (m *Medias) HandleEvent(event any) {
 		addMetaInfo(&spans, "Description", []string{event.Description})
 
 		m.metaParagraph.Spans = spans
+
+	case image.Image:
+		m.metaImage.SetSource(event)
+		m.metaImage.SetMaxSize(0, 25)
+
+	case clearImage:
+		m.metaImage.SetSource(nil)
+		m.metaImage.SetMaxSize(1, 1)
 	}
 
 	if item, ok := m.list.Selected(); ok && item.Id != m.requestedMetaId {
@@ -170,6 +194,22 @@ func (m *Medias) HandleEvent(event any) {
 				if meta, err := provider.Get(m.Catalog.Type, item.Id); err == nil {
 					m.Stack.Post(meta)
 				}
+			}
+		}()
+
+		go func() {
+			var img image.Image
+
+			if res, err := http.Get(item.Poster); err == nil {
+				defer res.Body.Close()
+
+				img, _, _ = image.Decode(res.Body)
+			}
+
+			if img != nil {
+				m.Stack.Post(img)
+			} else {
+				m.Stack.Post(clearImage{})
 			}
 		}()
 	}

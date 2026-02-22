@@ -20,8 +20,9 @@ type Extra struct {
 }
 
 type SearchResult struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id     string `json:"id"`
+	Name   string `json:"name"`
+	Poster string `json:"poster"`
 }
 
 // Catalog
