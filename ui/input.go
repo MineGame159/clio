@@ -141,9 +141,9 @@ func (w *Input) Draw(screen tcell.Screen, rect Rect) {
 	}
 
 	if len(w.runes) != 0 {
-		putStr(screen, rect.X, rect.Y, rect.Width, string(w.runes[offset:]), w.ValueStyle)
+		putStr(screen, rect.X, rect.Y, rect.X+rect.Width, string(w.runes[offset:]), w.ValueStyle)
 	} else {
-		putStr(screen, rect.X, rect.Y, rect.Width, w.Placeholder, w.PlaceholderStyle)
+		putStr(screen, rect.X, rect.Y, rect.X+rect.Width, w.Placeholder, w.PlaceholderStyle)
 	}
 
 	if rect.Height > 0 && w.focused {

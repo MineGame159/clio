@@ -14,8 +14,12 @@ type Medias struct {
 
 	Catalog *stremio.Catalog
 
+	requestedMetaId string
+
 	input *ui.Input
 	list  *ui.List[stremio.SearchResult]
+
+	metaParagraph *ui.Paragraph
 }
 
 func (m *Medias) Title() string {
@@ -36,14 +40,6 @@ func (m *Medias) Keys() []Key {
 }
 
 func (m *Medias) Widgets() []ui.Widget {
-	// List
-	m.list = &ui.List[stremio.SearchResult]{
-		ItemDisplayFn: ui.SimpleItemDisplayFn(searchResultText, ui.Fg(color.Lime)),
-		ItemHeight:    1,
-		SelectedStr:   "│ ",
-		SelectedStyle: ui.Fg(color.Lime),
-	}
-
 	// Input
 	m.input = &ui.Input{
 		Placeholder:      "Search catalog",
@@ -52,11 +48,32 @@ func (m *Medias) Widgets() []ui.Widget {
 
 	m.input.Focus()
 
+	// List
+	m.list = &ui.List[stremio.SearchResult]{
+		ItemDisplayFn: ui.SimpleItemDisplayFn(searchResultText, ui.Fg(color.Lime)),
+		ItemHeight:    1,
+		SelectedStr:   "│ ",
+		SelectedStyle: ui.Fg(color.Lime),
+	}
+
+	// Meta
+	m.metaParagraph = &ui.Paragraph{}
+	m.metaParagraph.SetMaxWidth(100)
+
 	// Root
 	return []ui.Widget{
 		ui.LeftMargin(m.input, 2),
 		&ui.HSeparator{Runes: ui.Rounded},
-		m.list,
+		&ui.Container{
+			Direction:          ui.Horizontal,
+			PrimaryAlignment:   ui.Stretch,
+			SecondaryAlignment: ui.Stretch,
+			Children: []ui.Widget{
+				m.list,
+				&ui.VSeparator{Runes: ui.Rounded},
+				m.metaParagraph,
+			},
+		},
 	}
 }
 
@@ -106,9 +123,83 @@ func (m *Medias) HandleEvent(event any) {
 		default:
 		}
 
+	case *tcell.EventResize:
+		width, _ := event.Size()
+		m.metaParagraph.SetMaxWidth(width / 3)
+
 	case []stremio.SearchResult:
 		m.list.SetItems(event)
+
+	case stremio.Meta:
+		var spans []ui.Span
+
+		released := addMetaInfo(&spans, "Released", []string{event.ReleaseInfo})
+		genres := addMetaInfo(&spans, "Genres", event.Genres)
+		if released || genres {
+			addMetaNewLine(&spans)
+		}
+
+		rating := addMetaInfo(&spans, "Rating", []string{event.Rating})
+		awards := addMetaInfo(&spans, "Awards", []string{event.Awards})
+		if rating || awards {
+			addMetaNewLine(&spans)
+		}
+
+		status := addMetaInfo(&spans, "Status", []string{event.Status})
+		runtime := addMetaInfo(&spans, "Runtime", []string{event.Runtime})
+		if status || runtime {
+			addMetaNewLine(&spans)
+		}
+
+		if addMetaInfo(&spans, "Cast", event.Cast) {
+			addMetaNewLine(&spans)
+		}
+
+		addMetaInfo(&spans, "Description", []string{event.Description})
+
+		m.metaParagraph.Spans = spans
 	}
+
+	if item, ok := m.list.Selected(); ok && item.Id != m.requestedMetaId {
+		m.requestedMetaId = item.Id
+
+		go func() {
+			provider := m.Ctx.MetaProviderForId(item.Id)
+
+			if provider != nil {
+				if meta, err := provider.Get(m.Catalog.Type, item.Id); err == nil {
+					m.Stack.Post(meta)
+				}
+			}
+		}()
+	}
+}
+
+func addMetaInfo(spans *[]ui.Span, name string, values []string) bool {
+	if len(values) == 0 || (len(values) == 1 && values[0] == "") {
+		return false
+	}
+
+	if len(*spans) > 0 {
+		addMetaNewLine(spans)
+	}
+
+	*spans = append(*spans, ui.Span{Text: name, Style: tcell.StyleDefault})
+	*spans = append(*spans, ui.Span{Text: ": ", Style: ui.Fg(color.Silver)})
+
+	for i, value := range values {
+		if i > 0 {
+			*spans = append(*spans, ui.Span{Text: ", ", Style: ui.Fg(color.Silver)})
+		}
+
+		*spans = append(*spans, ui.Span{Text: value, Style: ui.Fg(color.Gray)})
+	}
+
+	return true
+}
+
+func addMetaNewLine(spans *[]ui.Span) {
+	*spans = append(*spans, ui.Span{Text: "\n", Style: tcell.StyleDefault})
 }
 
 func searchResultText(item stremio.SearchResult) string {

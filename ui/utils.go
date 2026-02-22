@@ -102,10 +102,10 @@ func divCeil(x, y int) int {
 	return 1 + ((x - 1) / y)
 }
 
-func putStr(screen tcell.Screen, x, y, width int, str string, style tcell.Style) int {
+func putStr(screen tcell.Screen, x, y, maxX int, str string, style tcell.Style) int {
 	localX := 0
 
-	for str != "" && localX < width {
+	for str != "" && x+localX < maxX {
 		var w int
 		str, w = screen.Put(x+localX, y, str, style)
 

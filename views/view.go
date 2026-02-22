@@ -28,7 +28,8 @@ type Stack struct {
 	views  []stackedView
 	events chan any
 
-	running bool
+	running       bool
+	width, height int
 }
 
 type stackedView struct {
@@ -86,6 +87,13 @@ func (s *Stack) Run() {
 
 		if view.widget == nil {
 			view.createWidget()
+
+			if s.width > 0 && s.height > 0 {
+				event := tcell.NewEventResize(s.width, s.height)
+
+				view.widget.HandleEvent(event)
+				view.view.HandleEvent(event)
+			}
 		} else {
 			view.updateFooter()
 		}
@@ -136,6 +144,8 @@ func (s *Stack) handleEvent(screen tcell.Screen, root ui.Widget, event any) {
 	case *tcell.EventResize:
 		screen.Clear()
 		screen.Sync()
+
+		s.width, s.height = event.Size()
 
 	case *tcell.EventKey:
 		switch event.Key() {

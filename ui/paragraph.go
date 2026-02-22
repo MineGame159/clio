@@ -81,23 +81,89 @@ func (w *Paragraph) HandleEvent(_ any) {
 }
 
 func (w *Paragraph) Draw(screen tcell.Screen, rect Rect) {
-	for y, line := range w.lines {
-		if y >= rect.Height {
-			break
+	y := 0
+
+	for _, logicalLine := range w.lines {
+		// Measure line width
+		totalLineWidth := calcLineWidth(logicalLine)
+
+		// Skip word wrapping if the line fits inside rectangle
+		if totalLineWidth <= rect.Width {
+			if w.drawLine(screen, rect, &y, totalLineWidth, logicalLine) {
+				return
+			}
+
+			continue
 		}
 
-		// Calculate line width
-		lineWidth := 0
+		// Word wrap
+		var currentVisualLine []Span
+		currentLineWidth := 0
 
-		for _, span := range line {
-			lineWidth += uniseg.StringWidth(span.Text)
+		for _, span := range logicalLine {
+			i := 0
+
+			for word := range strings.SplitSeq(span.Text, " ") {
+				wordWidth := uniseg.StringWidth(word)
+
+				spaceWidth := 0
+				prefix := ""
+
+				if i > 0 {
+					spaceWidth = 1
+					prefix = " "
+				}
+
+				if currentLineWidth+spaceWidth+wordWidth > rect.Width && len(currentVisualLine) > 0 {
+					if w.drawLine(screen, rect, &y, currentLineWidth, currentVisualLine) {
+						return
+					}
+
+					currentVisualLine = currentVisualLine[:0]
+					currentLineWidth = 0
+					prefix = ""
+					spaceWidth = 0
+				}
+
+				currentVisualLine = append(currentVisualLine, Span{
+					Text:  prefix + word,
+					Style: span.Style,
+				})
+
+				currentLineWidth += spaceWidth + wordWidth
+				i++
+			}
 		}
 
-		// Draw spans
-		x := align(w.Alignment, max(w.requiredWidth-lineWidth, 0))
-
-		for _, span := range line {
-			x += putStr(screen, rect.X+x, rect.Y+y, rect.Width, span.Text, span.Style)
+		if len(currentVisualLine) > 0 {
+			if w.drawLine(screen, rect, &y, currentLineWidth, currentVisualLine) {
+				return
+			}
 		}
 	}
+}
+
+func (w *Paragraph) drawLine(screen tcell.Screen, rect Rect, y *int, lineWidth int, spans []Span) bool {
+	if *y >= rect.Height {
+		return true
+	}
+
+	x := rect.X + align(w.Alignment, max(rect.Width-lineWidth, 0))
+
+	for _, span := range spans {
+		x += putStr(screen, x, rect.Y+*y, rect.X+rect.Width, span.Text, span.Style)
+	}
+
+	*y++
+	return false
+}
+
+func calcLineWidth(spans []Span) int {
+	width := 0
+
+	for _, span := range spans {
+		width += uniseg.StringWidth(span.Text)
+	}
+
+	return width
 }
