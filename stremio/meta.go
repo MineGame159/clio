@@ -9,9 +9,10 @@ import (
 )
 
 type MetaProvider struct {
-	Addon *Addon
+	Addon *Addon `json:"-"`
 
-	IdPrefixes []string
+	Types      []string `json:"types"`
+	IdPrefixes []string `json:"idPrefixes"`
 }
 
 type Meta struct {
@@ -42,7 +43,20 @@ type Video struct {
 
 // MetaProvider
 
-func (m *MetaProvider) SupportsId(id string) bool {
+func (m *MetaProvider) SupportsKindId(kind, id string) bool {
+	supportsKind := false
+
+	for _, providerKind := range m.Types {
+		if providerKind == kind {
+			supportsKind = true
+			break
+		}
+	}
+
+	if !supportsKind {
+		return false
+	}
+
 	for _, prefix := range m.IdPrefixes {
 		if strings.HasPrefix(id, prefix) {
 			return true

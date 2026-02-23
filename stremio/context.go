@@ -30,9 +30,9 @@ func (c *Context) StreamProviders() iter.Seq[*StreamProvider] {
 	}
 }
 
-func (c *Context) StreamProviderForId(id string) *StreamProvider {
+func (c *Context) StreamProviderForKindId(kind, id string) *StreamProvider {
 	for streamProvider := range c.StreamProviders() {
-		if streamProvider.SupportsId(id) {
+		if streamProvider.SupportsKindId(kind, id) {
 			return streamProvider
 		}
 	}
@@ -52,9 +52,9 @@ func (c *Context) MetaProviders() iter.Seq[*MetaProvider] {
 	}
 }
 
-func (c *Context) MetaProviderForId(id string) *MetaProvider {
+func (c *Context) MetaProviderForKindId(kind, id string) *MetaProvider {
 	for metaProvider := range c.MetaProviders() {
-		if metaProvider.SupportsId(id) {
+		if metaProvider.SupportsKindId(kind, id) {
 			return metaProvider
 		}
 	}

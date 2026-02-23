@@ -21,6 +21,7 @@ type Addon struct {
 
 type manifest struct {
 	Name            string            `json:"name"`
+	Types           []string          `json:"types"`
 	IdPrefixes      []string          `json:"idPrefixes"`
 	Resources       []json.RawMessage `json:"resources,omitempty"`
 	Catalogs        []Catalog         `json:"catalogs,omitempty"`
@@ -49,8 +50,11 @@ func Load(url string) (*Addon, error) {
 		if string(rawResource) == "\"meta\"" {
 			addon.MetaProviders = append(addon.MetaProviders, &MetaProvider{
 				Addon:      addon,
+				Types:      man.Types,
 				IdPrefixes: man.IdPrefixes,
 			})
+
+			continue
 		}
 
 		var resource Extra
@@ -67,12 +71,31 @@ func Load(url string) (*Addon, error) {
 				addon.Catalogs = append(addon.Catalogs, &catalog)
 			}
 
+		case "meta":
+			var metaProvider MetaProvider
+
+			if err := json.Unmarshal(rawResource, &metaProvider); err == nil {
+				metaProvider.Addon = addon
+
+				if len(metaProvider.Types) == 0 {
+					metaProvider.Types = man.Types
+				}
+				if len(metaProvider.IdPrefixes) == 0 {
+					metaProvider.IdPrefixes = man.IdPrefixes
+				}
+
+				addon.MetaProviders = append(addon.MetaProviders, &metaProvider)
+			}
+
 		case "stream":
 			var streamProvider StreamProvider
 
 			if err := json.Unmarshal(rawResource, &streamProvider); err == nil {
 				streamProvider.Addon = addon
 
+				if len(streamProvider.Types) == 0 {
+					streamProvider.Types = man.Types
+				}
 				if len(streamProvider.IdPrefixes) == 0 {
 					streamProvider.IdPrefixes = man.IdPrefixes
 				}

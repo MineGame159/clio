@@ -55,7 +55,7 @@ func (s *Seasons) Widgets() []ui.Widget {
 	s.list.Focus()
 
 	go func() {
-		provider := s.Ctx.MetaProviderForId(s.SearchResult.Id)
+		provider := s.Ctx.MetaProviderForKindId(s.Catalog.Type, s.SearchResult.Id)
 
 		if provider != nil {
 			if meta, err := provider.Get(s.Catalog.Type, s.SearchResult.Id); err == nil {

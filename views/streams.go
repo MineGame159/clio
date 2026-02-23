@@ -57,7 +57,7 @@ func (s *Streams) Widgets() []ui.Widget {
 	s.list.Focus()
 
 	go func() {
-		provider := s.Ctx.StreamProviderForId(s.SearchResult.Id)
+		provider := s.Ctx.StreamProviderForKindId(s.Catalog.Type, s.SearchResult.Id)
 
 		if provider != nil {
 			var streams []stremio.Stream

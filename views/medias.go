@@ -188,7 +188,7 @@ func (m *Medias) HandleEvent(event any) {
 		m.requestedMetaId = item.Id
 
 		go func() {
-			provider := m.Ctx.MetaProviderForId(item.Id)
+			provider := m.Ctx.MetaProviderForKindId(m.Catalog.Type, item.Id)
 
 			if provider != nil {
 				if meta, err := provider.Get(m.Catalog.Type, item.Id); err == nil {

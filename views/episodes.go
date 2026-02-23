@@ -51,7 +51,7 @@ func (e *Episodes) Widgets() []ui.Widget {
 	e.list.Focus()
 
 	go func() {
-		provider := e.Ctx.MetaProviderForId(e.SearchResult.Id)
+		provider := e.Ctx.MetaProviderForKindId(e.Catalog.Type, e.SearchResult.Id)
 
 		if provider != nil {
 			if meta, err := provider.Get(e.Catalog.Type, e.SearchResult.Id); err == nil {

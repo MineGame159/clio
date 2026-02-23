@@ -29,7 +29,20 @@ type BehaviorHints struct {
 
 // StreamProvider
 
-func (s *StreamProvider) SupportsId(id string) bool {
+func (s *StreamProvider) SupportsKindId(kind, id string) bool {
+	supportsKind := false
+
+	for _, providerKind := range s.Types {
+		if providerKind == kind {
+			supportsKind = true
+			break
+		}
+	}
+
+	if !supportsKind {
+		return false
+	}
+
 	for _, prefix := range s.IdPrefixes {
 		if strings.HasPrefix(id, prefix) {
 			return true
