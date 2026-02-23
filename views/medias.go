@@ -1,10 +1,13 @@
 package views
 
 import (
+	"clio/core"
 	"clio/stremio"
 	"clio/ui"
+	"fmt"
 	"image"
 	"net/http"
+	"strings"
 
 	"github.com/gdamore/tcell/v3"
 	"github.com/gdamore/tcell/v3/color"
@@ -40,6 +43,10 @@ func (m *Medias) Keys() []Key {
 	} else {
 		keys = append(keys, Key{"Enter", "open"})
 		keys = append(keys, Key{"Tab", "search"})
+
+		if item, ok := m.list.Selected(); ok && strings.HasPrefix(item.Id, "tt") {
+			keys = append(keys, Key{"I", "imdb"})
+		}
 	}
 
 	return keys
@@ -148,6 +155,13 @@ func (m *Medias) HandleEvent(event any) {
 			if m.list.Focused() {
 				m.input.Focus()
 				m.list.Blur()
+			}
+
+		case tcell.KeyRune:
+			if m.list.Focused() && (event.Str() == "i" || event.Str() == "I") {
+				if item, ok := m.list.Selected(); ok && strings.HasPrefix(item.Id, "tt") {
+					_ = core.OpenURL(fmt.Sprintf("https://imdb.com/title/%s", item.Id))
+				}
 			}
 
 		default:
