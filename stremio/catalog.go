@@ -9,11 +9,20 @@ import (
 type Catalog struct {
 	Addon *Addon `json:"-"`
 
-	Type   string  `json:"type"`
-	Id     string  `json:"id"`
-	Name   string  `json:"name"`
-	Extras []Extra `json:"extra"`
+	Kind   MediaKind `json:"type"`
+	Id     string    `json:"id"`
+	Name   string    `json:"name"`
+	Extras []Extra   `json:"extra"`
 }
+
+type MediaKind string
+
+const (
+	Movie  MediaKind = "movie"
+	Series MediaKind = "series"
+	Anime  MediaKind = "anime"
+	Other  MediaKind = "other"
+)
 
 type Extra struct {
 	Name string `json:"name"`
@@ -28,7 +37,7 @@ type SearchResult struct {
 // Catalog
 
 func (c *Catalog) FullName() string {
-	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Type, c.Name)
+	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Kind.Name(), c.Name)
 }
 
 func (c *Catalog) HasExtra(name string) bool {
@@ -42,7 +51,7 @@ func (c *Catalog) HasExtra(name string) bool {
 }
 
 func (c *Catalog) Search(query string) ([]SearchResult, error) {
-	searchUrl := fmt.Sprintf("%s/catalog/%s/%s/search=%s.json", c.Addon.Url, c.Type, c.Id, url.QueryEscape(query))
+	searchUrl := fmt.Sprintf("%s/catalog/%s/%s/search=%s.json", c.Addon.Url, c.Kind, c.Id, url.QueryEscape(query))
 
 	res, err := core.GetJson[struct{ Metas []SearchResult }](searchUrl)
 	if err != nil {
@@ -50,4 +59,31 @@ func (c *Catalog) Search(query string) ([]SearchResult, error) {
 	}
 
 	return res.Metas, nil
+}
+
+// MediaKind
+
+func (m MediaKind) HasEpisodes() bool {
+	switch m {
+	case Series, Anime:
+		return true
+
+	default:
+		return false
+	}
+}
+
+func (m MediaKind) Name() string {
+	switch m {
+	case Movie:
+		return "Movie"
+	case Series:
+		return "Series"
+	case Anime:
+		return "Anime"
+	case Other:
+		return "Other"
+	default:
+		return core.Capitalize(string(m))
+	}
 }

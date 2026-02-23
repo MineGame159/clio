@@ -57,15 +57,15 @@ func (s *Streams) Widgets() []ui.Widget {
 	s.list.Focus()
 
 	go func() {
-		provider := s.Ctx.StreamProviderForKindId(s.Catalog.Type, s.SearchResult.Id)
+		provider := s.Ctx.StreamProviderForKindId(s.Catalog.Kind, s.SearchResult.Id)
 
 		if provider != nil {
 			var streams []stremio.Stream
 
 			if s.EpisodeName != "" {
-				streams, _ = provider.SearchEpisode(s.Catalog.Type, s.SearchResult.Id, s.Season, s.Episode)
+				streams, _ = provider.SearchEpisode(s.Catalog.Kind, s.SearchResult.Id, s.Season, s.Episode)
 			} else {
-				streams, _ = provider.Search(s.Catalog.Type, s.SearchResult.Id)
+				streams, _ = provider.Search(s.Catalog.Kind, s.SearchResult.Id)
 			}
 
 			streams2 := make([]Stream, 0, len(streams))

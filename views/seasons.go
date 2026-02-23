@@ -55,10 +55,10 @@ func (s *Seasons) Widgets() []ui.Widget {
 	s.list.Focus()
 
 	go func() {
-		provider := s.Ctx.MetaProviderForKindId(s.Catalog.Type, s.SearchResult.Id)
+		provider := s.Ctx.MetaProviderForKindId(s.Catalog.Kind, s.SearchResult.Id)
 
 		if provider != nil {
-			if meta, err := provider.Get(s.Catalog.Type, s.SearchResult.Id); err == nil {
+			if meta, err := provider.Get(s.Catalog.Kind, s.SearchResult.Id); err == nil {
 				s.Stack.Post(meta)
 			}
 		}

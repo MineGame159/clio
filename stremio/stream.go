@@ -9,8 +9,8 @@ import (
 type StreamProvider struct {
 	Addon *Addon `json:"-"`
 
-	Types      []string `json:"types"`
-	IdPrefixes []string `json:"idPrefixes"`
+	Kinds      []MediaKind `json:"types"`
+	IdPrefixes []string    `json:"idPrefixes"`
 }
 
 type Stream struct {
@@ -29,10 +29,10 @@ type BehaviorHints struct {
 
 // StreamProvider
 
-func (s *StreamProvider) SupportsKindId(kind, id string) bool {
+func (s *StreamProvider) SupportsKindId(kind MediaKind, id string) bool {
 	supportsKind := false
 
-	for _, providerKind := range s.Types {
+	for _, providerKind := range s.Kinds {
 		if providerKind == kind {
 			supportsKind = true
 			break
@@ -52,7 +52,7 @@ func (s *StreamProvider) SupportsKindId(kind, id string) bool {
 	return false
 }
 
-func (s *StreamProvider) Search(kind string, id string) ([]Stream, error) {
+func (s *StreamProvider) Search(kind MediaKind, id string) ([]Stream, error) {
 	searchUrl := fmt.Sprintf("%s/stream/%s/%s.json", s.Addon.Url, kind, id)
 
 	res, err := core.GetJson[struct{ Streams []Stream }](searchUrl)
@@ -63,7 +63,7 @@ func (s *StreamProvider) Search(kind string, id string) ([]Stream, error) {
 	return res.Streams, nil
 }
 
-func (s *StreamProvider) SearchEpisode(kind string, id string, season uint, episode uint) ([]Stream, error) {
+func (s *StreamProvider) SearchEpisode(kind MediaKind, id string, season uint, episode uint) ([]Stream, error) {
 	searchUrl := fmt.Sprintf("%s/stream/%s/%s:%d:%d.json", s.Addon.Url, kind, id, season, episode)
 
 	res, err := core.GetJson[struct{ Streams []Stream }](searchUrl)

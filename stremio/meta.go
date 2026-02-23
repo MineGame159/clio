@@ -11,8 +11,8 @@ import (
 type MetaProvider struct {
 	Addon *Addon `json:"-"`
 
-	Types      []string `json:"types"`
-	IdPrefixes []string `json:"idPrefixes"`
+	Kinds      []MediaKind `json:"types"`
+	IdPrefixes []string    `json:"idPrefixes"`
 }
 
 type Meta struct {
@@ -43,10 +43,10 @@ type Video struct {
 
 // MetaProvider
 
-func (m *MetaProvider) SupportsKindId(kind, id string) bool {
+func (m *MetaProvider) SupportsKindId(kind MediaKind, id string) bool {
 	supportsKind := false
 
-	for _, providerKind := range m.Types {
+	for _, providerKind := range m.Kinds {
 		if providerKind == kind {
 			supportsKind = true
 			break
@@ -66,7 +66,7 @@ func (m *MetaProvider) SupportsKindId(kind, id string) bool {
 	return false
 }
 
-func (m *MetaProvider) Get(kind string, id string) (Meta, error) {
+func (m *MetaProvider) Get(kind MediaKind, id string) (Meta, error) {
 	metaUrl := fmt.Sprintf("%s/meta/%s/%s.json", m.Addon.Url, kind, id)
 
 	res, err := core.GetJson[struct{ Meta Meta }](metaUrl)

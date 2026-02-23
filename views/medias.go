@@ -110,7 +110,14 @@ func (m *Medias) HandleEvent(event any) {
 				m.input.Blur()
 				m.list.Focus()
 			} else if item, ok := m.list.Selected(); ok {
-				if m.Catalog.Type == "movie" {
+				if m.Catalog.Kind.HasEpisodes() {
+					m.Stack.Push(&Seasons{
+						Stack:        m.Stack,
+						Ctx:          m.Ctx,
+						Catalog:      m.Catalog,
+						SearchResult: item,
+					})
+				} else {
 					m.Stack.Push(&Streams{
 						Stack:        m.Stack,
 						Ctx:          m.Ctx,
@@ -119,13 +126,6 @@ func (m *Medias) HandleEvent(event any) {
 						Season:       0,
 						Episode:      0,
 						EpisodeName:  "",
-					})
-				} else {
-					m.Stack.Push(&Seasons{
-						Stack:        m.Stack,
-						Ctx:          m.Ctx,
-						Catalog:      m.Catalog,
-						SearchResult: item,
 					})
 				}
 			}
@@ -188,10 +188,10 @@ func (m *Medias) HandleEvent(event any) {
 		m.requestedMetaId = item.Id
 
 		go func() {
-			provider := m.Ctx.MetaProviderForKindId(m.Catalog.Type, item.Id)
+			provider := m.Ctx.MetaProviderForKindId(m.Catalog.Kind, item.Id)
 
 			if provider != nil {
-				if meta, err := provider.Get(m.Catalog.Type, item.Id); err == nil {
+				if meta, err := provider.Get(m.Catalog.Kind, item.Id); err == nil {
 					m.Stack.Post(meta)
 				}
 			}
@@ -201,6 +201,7 @@ func (m *Medias) HandleEvent(event any) {
 			var img image.Image
 
 			if res, err := http.Get(item.Poster); err == nil {
+				//goland:noinspection GoUnhandledErrorResult
 				defer res.Body.Close()
 
 				img, _, _ = image.Decode(res.Body)
