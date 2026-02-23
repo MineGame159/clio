@@ -21,7 +21,7 @@ type Streams struct {
 	EpisodeName  string
 
 	input *ui.Input
-	list  *ui.List[stremio.Stream]
+	list  *ui.List[Stream]
 }
 
 func (s *Streams) Title() string {
@@ -47,8 +47,8 @@ func (s *Streams) Keys() []Key {
 
 func (s *Streams) Widgets() []ui.Widget {
 	// List
-	s.list = &ui.List[stremio.Stream]{
-		ItemDisplayFn: streamWidget,
+	s.list = &ui.List[Stream]{
+		ItemDisplayFn: StreamWidget,
 		ItemHeight:    2,
 		SelectedStr:   "│ ",
 		SelectedStyle: ui.Fg(color.Lime),
@@ -60,15 +60,23 @@ func (s *Streams) Widgets() []ui.Widget {
 		provider := s.Ctx.StreamProviderForId(s.SearchResult.Id)
 
 		if provider != nil {
+			var streams []stremio.Stream
+
 			if s.EpisodeName != "" {
-				if streams, err := provider.SearchEpisode(s.Catalog.Type, s.SearchResult.Id, s.Season, s.Episode); err == nil {
-					s.Stack.Post(streams)
-				}
+				streams, _ = provider.SearchEpisode(s.Catalog.Type, s.SearchResult.Id, s.Season, s.Episode)
 			} else {
-				if streams, err := provider.Search(s.Catalog.Type, s.SearchResult.Id); err == nil {
-					s.Stack.Post(streams)
+				streams, _ = provider.Search(s.Catalog.Type, s.SearchResult.Id)
+			}
+
+			streams2 := make([]Stream, 0, len(streams))
+
+			for _, stream := range streams {
+				if stream.Url != "" {
+					streams2 = append(streams2, ParseStream(stream))
 				}
 			}
+
+			s.Stack.Post(streams2)
 		}
 	}()
 
@@ -77,7 +85,7 @@ func (s *Streams) Widgets() []ui.Widget {
 		Placeholder:      "Search streams",
 		PlaceholderStyle: ui.Fg(color.Gray),
 		OnChange: func(value string) {
-			s.list.Filter(ui.FilterFn(value, streamText))
+			s.list.Filter(ui.FilterFn(value, StreamText))
 		},
 	}
 
@@ -116,32 +124,7 @@ func (s *Streams) HandleEvent(event any) {
 		default:
 		}
 
-	case []stremio.Stream:
+	case []Stream:
 		s.list.SetItems(event)
 	}
-}
-
-func streamWidget(item stremio.Stream, selected bool) ui.Widget {
-	style := tcell.StyleDefault
-	if selected {
-		style = ui.Fg(color.Lime)
-	}
-
-	spans := []ui.Span{{item.TorrentName() + "\n", style}}
-
-	resolution := item.Resolution()
-	if resolution != "" {
-		spans = append(spans, ui.Span{Text: resolution, Style: ui.Fg(color.Gray)})
-	}
-
-	if len(spans) > 1 {
-		spans = append(spans, ui.Span{Text: ", ", Style: ui.Fg(color.Silver)})
-	}
-	spans = append(spans, ui.Span{Text: item.Size().String(), Style: ui.Fg(color.Gray)})
-
-	return &ui.Paragraph{Spans: spans}
-}
-
-func streamText(item stremio.Stream) string {
-	return item.TorrentName()
 }
