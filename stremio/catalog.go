@@ -25,7 +25,8 @@ const (
 )
 
 type Extra struct {
-	Name string `json:"name"`
+	Name     string `json:"name"`
+	Required bool   `json:"isRequired"`
 }
 
 type SearchResult struct {
@@ -40,14 +41,14 @@ func (c *Catalog) FullName() string {
 	return fmt.Sprintf("%s | %s - %s", c.Addon.Name, c.Kind.Name(), c.Name)
 }
 
-func (c *Catalog) HasExtra(name string) bool {
+func (c *Catalog) GetExtra(name string) (Extra, bool) {
 	for _, extra := range c.Extras {
 		if extra.Name == name {
-			return true
+			return extra, true
 		}
 	}
 
-	return false
+	return Extra{}, false
 }
 
 func (c *Catalog) Search(query string) ([]SearchResult, error) {

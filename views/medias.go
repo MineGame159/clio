@@ -16,6 +16,7 @@ type Medias struct {
 
 	Catalog *stremio.Catalog
 
+	lastSearch      string
 	requestedMetaId string
 
 	input *ui.Input
@@ -61,6 +62,14 @@ func (m *Medias) Widgets() []ui.Widget {
 		SelectedStyle: ui.Fg(color.Lime),
 	}
 
+	if extra, _ := m.Catalog.GetExtra("search"); !extra.Required {
+		go func() {
+			if results, err := m.Catalog.Search(""); err == nil {
+				m.Stack.Post(results)
+			}
+		}()
+	}
+
 	// Meta
 	m.metaImage = &ui.Image{}
 	m.metaImage.SetMaxSize(1, 1)
@@ -99,13 +108,18 @@ func (m *Medias) HandleEvent(event any) {
 		switch event.Key() {
 		case tcell.KeyEnter:
 			if m.input.Focused() {
-				m.list.SetItems(nil)
+				search := m.input.Value()
 
-				go func() {
-					if results, err := m.Catalog.Search(m.input.Value()); err == nil {
-						m.Stack.Post(results)
-					}
-				}()
+				if m.lastSearch != search {
+					m.lastSearch = search
+					m.list.SetItems(nil)
+
+					go func() {
+						if results, err := m.Catalog.Search(search); err == nil {
+							m.Stack.Post(results)
+						}
+					}()
+				}
 
 				m.input.Blur()
 				m.list.Focus()
