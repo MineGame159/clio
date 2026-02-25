@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/gdamore/tcell/v3 v3.1.2
-	github.com/ploMP4/chafa-go v0.4.1
+	github.com/ploMP4/chafa-go v0.5.0
 	github.com/rivo/uniseg v0.4.7
 )
 
