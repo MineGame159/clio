@@ -37,7 +37,16 @@ func (c *Catalogs) Widgets() []ui.Widget {
 	var items []*stremio.Catalog
 
 	for catalog := range c.Ctx.Catalogs() {
-		if _, ok := catalog.GetExtra("search"); ok {
+		ok := true
+
+		for _, extra := range catalog.Extras {
+			if extra.Required && extra.Name != "search" {
+				ok = false
+				break
+			}
+		}
+
+		if ok {
 			items = append(items, catalog)
 		}
 	}

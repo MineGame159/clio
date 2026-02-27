@@ -52,7 +52,13 @@ func (c *Catalog) GetExtra(name string) (Extra, bool) {
 }
 
 func (c *Catalog) Search(query string) ([]SearchResult, error) {
-	searchUrl := fmt.Sprintf("%s/catalog/%s/%s/search=%s.json", c.Addon.Url, c.Kind, c.Id, url.QueryEscape(query))
+	var searchUrl string
+
+	if query == "" {
+		searchUrl = fmt.Sprintf("%s/catalog/%s/%s.json", c.Addon.Url, c.Kind, c.Id)
+	} else {
+		searchUrl = fmt.Sprintf("%s/catalog/%s/%s/search=%s.json", c.Addon.Url, c.Kind, c.Id, url.QueryEscape(query))
+	}
 
 	res, err := core.GetJson[struct{ Metas []SearchResult }](searchUrl)
 	if err != nil {

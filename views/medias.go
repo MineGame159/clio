@@ -57,6 +57,11 @@ func (m *Medias) Widgets() []ui.Widget {
 	m.input = &ui.Input{
 		Placeholder:      "Search catalog",
 		PlaceholderStyle: ui.Fg(color.Gray),
+		OnChange: func(value string) {
+			if _, ok := m.Catalog.GetExtra("search"); !ok {
+				m.list.Filter(ui.FilterFn(value, searchResultText))
+			}
+		},
 	}
 
 	m.input.Focus()
@@ -69,7 +74,7 @@ func (m *Medias) Widgets() []ui.Widget {
 		SelectedStyle: ui.Fg(color.Lime),
 	}
 
-	if extra, _ := m.Catalog.GetExtra("search"); !extra.Required {
+	if extra, ok := m.Catalog.GetExtra("search"); !ok || !extra.Required {
 		go func() {
 			if results, err := m.Catalog.Search(""); err == nil {
 				m.Stack.Post(results)
@@ -115,17 +120,19 @@ func (m *Medias) HandleEvent(event any) {
 		switch event.Key() {
 		case tcell.KeyEnter:
 			if m.input.Focused() {
-				search := m.input.Value()
+				if _, ok := m.Catalog.GetExtra("search"); ok {
+					search := m.input.Value()
 
-				if m.lastSearch != search {
-					m.lastSearch = search
-					m.list.SetItems(nil)
+					if m.lastSearch != search {
+						m.lastSearch = search
+						m.list.SetItems(nil)
 
-					go func() {
-						if results, err := m.Catalog.Search(search); err == nil {
-							m.Stack.Post(results)
-						}
-					}()
+						go func() {
+							if results, err := m.Catalog.Search(search); err == nil {
+								m.Stack.Post(results)
+							}
+						}()
+					}
 				}
 
 				m.input.Blur()

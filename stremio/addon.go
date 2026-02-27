@@ -66,7 +66,7 @@ func Load(url string) (*Addon, error) {
 		case "catalog":
 			var catalog Catalog
 
-			if err := json.Unmarshal(rawResource, &catalog); err == nil {
+			if err := json.Unmarshal(rawResource, &catalog); err == nil && catalog.Kind != "" && catalog.Id != "" {
 				catalog.Addon = addon
 				addon.Catalogs = append(addon.Catalogs, &catalog)
 			}
@@ -84,7 +84,9 @@ func Load(url string) (*Addon, error) {
 					metaProvider.IdPrefixes = man.IdPrefixes
 				}
 
-				addon.MetaProviders = append(addon.MetaProviders, &metaProvider)
+				if len(metaProvider.Kinds) > 0 && len(metaProvider.IdPrefixes) > 0 {
+					addon.MetaProviders = append(addon.MetaProviders, &metaProvider)
+				}
 			}
 
 		case "stream":
@@ -100,24 +102,29 @@ func Load(url string) (*Addon, error) {
 					streamProvider.IdPrefixes = man.IdPrefixes
 				}
 
-				addon.StreamProviders = append(addon.StreamProviders, &streamProvider)
+				if len(streamProvider.Kinds) > 0 && len(streamProvider.IdPrefixes) > 0 {
+					addon.StreamProviders = append(addon.StreamProviders, &streamProvider)
+				}
 			}
 		}
 	}
 
 	for _, catalog := range man.Catalogs {
-		catalog.Addon = addon
-		addon.Catalogs = append(addon.Catalogs, &catalog)
+		if catalog.Kind != "" && catalog.Id != "" {
+			catalog.Addon = addon
+			addon.Catalogs = append(addon.Catalogs, &catalog)
+		}
 	}
 
 	for _, streamProvider := range man.StreamProviders {
-		streamProvider.Addon = addon
-
 		if len(streamProvider.IdPrefixes) == 0 {
 			streamProvider.IdPrefixes = man.IdPrefixes
 		}
 
-		addon.StreamProviders = append(addon.StreamProviders, &streamProvider)
+		if len(streamProvider.Kinds) > 0 && len(streamProvider.IdPrefixes) > 0 {
+			streamProvider.Addon = addon
+			addon.StreamProviders = append(addon.StreamProviders, &streamProvider)
+		}
 	}
 
 	return addon, nil
