@@ -2,6 +2,7 @@ package stremio
 
 import (
 	"clio/core"
+	"context"
 	"fmt"
 	"strings"
 )
@@ -52,10 +53,10 @@ func (s *StreamProvider) SupportsKindId(kind MediaKind, id string) bool {
 	return false
 }
 
-func (s *StreamProvider) Search(kind MediaKind, id string) ([]Stream, error) {
+func (s *StreamProvider) Search(ctx context.Context, kind MediaKind, id string) ([]Stream, error) {
 	searchUrl := fmt.Sprintf("%s/stream/%s/%s.json", s.Addon.Url, kind, id)
 
-	res, err := core.GetJson[struct{ Streams []Stream }](searchUrl)
+	res, err := core.GetJsonCtx[struct{ Streams []Stream }](ctx, searchUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -63,10 +64,10 @@ func (s *StreamProvider) Search(kind MediaKind, id string) ([]Stream, error) {
 	return res.Streams, nil
 }
 
-func (s *StreamProvider) SearchEpisode(kind MediaKind, id string, season uint, episode uint) ([]Stream, error) {
+func (s *StreamProvider) SearchEpisode(ctx context.Context, kind MediaKind, id string, season uint, episode uint) ([]Stream, error) {
 	searchUrl := fmt.Sprintf("%s/stream/%s/%s:%d:%d.json", s.Addon.Url, kind, id, season, episode)
 
-	res, err := core.GetJson[struct{ Streams []Stream }](searchUrl)
+	res, err := core.GetJsonCtx[struct{ Streams []Stream }](ctx, searchUrl)
 	if err != nil {
 		return nil, err
 	}

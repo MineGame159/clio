@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,9 +48,12 @@ func Count[T any](it iter.Seq[T]) uint {
 
 	return count
 }
-
 func GetJson[T any](url string) (T, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	return GetJsonCtx[T](context.Background(), url)
+}
+
+func GetJsonCtx[T any](ctx context.Context, url string) (T, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		var empty T
 		return empty, err

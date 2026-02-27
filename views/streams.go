@@ -4,6 +4,7 @@ import (
 	"clio/core"
 	"clio/stremio"
 	"clio/ui"
+	"context"
 	"fmt"
 
 	"github.com/gdamore/tcell/v3"
@@ -20,16 +21,22 @@ type Streams struct {
 	Episode      uint
 	EpisodeName  string
 
+	providers []*stremio.StreamProvider
+	providerI int
+
+	fetchCancelFn           func()
+	manuallyChangedProvider bool
+
 	input *ui.Input
 	list  *ui.List[Stream]
 }
 
 func (s *Streams) Title() string {
-	if s.EpisodeName != "" {
-		return fmt.Sprintf("Streams for '%s - S%02dE%02d - %s'", s.SearchResult.Name, s.Season, s.Episode, s.EpisodeName)
+	if len(s.providers) == 0 {
+		return "No addon for this media kind"
 	}
 
-	return fmt.Sprintf("Streams for '%s'", s.SearchResult.Name)
+	return s.providers[s.providerI].Addon.Name
 }
 
 func (s *Streams) Keys() []Key {
@@ -40,6 +47,11 @@ func (s *Streams) Keys() []Key {
 	} else {
 		keys = append(keys, Key{"Enter", "play"})
 		keys = append(keys, Key{"Tab", "search"})
+
+		if len(s.providers) > 1 {
+			keys = append(keys, Key{"B", "prev addon"})
+			keys = append(keys, Key{"N", "next addon"})
+		}
 	}
 
 	return keys
@@ -56,29 +68,15 @@ func (s *Streams) Widgets() []ui.Widget {
 
 	s.list.Focus()
 
-	go func() {
-		provider := s.Ctx.StreamProviderForKindId(s.Catalog.Kind, s.SearchResult.Id)
-
-		if provider != nil {
-			var streams []stremio.Stream
-
-			if s.EpisodeName != "" {
-				streams, _ = provider.SearchEpisode(s.Catalog.Kind, s.SearchResult.Id, s.Season, s.Episode)
-			} else {
-				streams, _ = provider.Search(s.Catalog.Kind, s.SearchResult.Id)
-			}
-
-			streams2 := make([]Stream, 0, len(streams))
-
-			for _, stream := range streams {
-				if stream.Url != "" {
-					streams2 = append(streams2, ParseStream(stream))
-				}
-			}
-
-			s.Stack.Post(streams2)
+	for provider := range s.Ctx.StreamProviders() {
+		if provider.SupportsKindId(s.Catalog.Kind, s.SearchResult.Id) {
+			s.providers = append(s.providers, provider)
 		}
-	}()
+	}
+
+	if len(s.providers) > 0 {
+		s.fetch()
+	}
 
 	// Input
 	s.input = &ui.Input{
@@ -121,10 +119,84 @@ func (s *Streams) HandleEvent(event any) {
 				s.list.Blur()
 			}
 
+		case tcell.KeyRune:
+			switch event.Str() {
+			case "B", "b":
+				if s.list.Focused() && len(s.providers) > 1 {
+					s.providerI--
+					if s.providerI < 0 {
+						s.providerI = len(s.providers) - 1
+					}
+
+					s.manuallyChangedProvider = true
+					s.fetch()
+				}
+
+			case "N", "n":
+				if s.list.Focused() && len(s.providers) > 1 {
+					s.providerI = (s.providerI + 1) % len(s.providers)
+
+					s.manuallyChangedProvider = true
+					s.fetch()
+				}
+			}
+
 		default:
 		}
 
 	case []Stream:
+		if len(event) == 0 && !s.manuallyChangedProvider {
+			s.providerI = (s.providerI + 1) % len(s.providers)
+
+			if s.providerI == 0 {
+				s.manuallyChangedProvider = false
+			}
+
+			s.fetch()
+		}
+
 		s.list.SetItems(event)
+
+		if value := s.input.Value(); value != "" {
+			s.list.Filter(ui.FilterFn(value, StreamText))
+		}
 	}
+}
+
+func (s *Streams) fetch() {
+	s.list.SetItems(nil)
+
+	if s.fetchCancelFn != nil {
+		s.fetchCancelFn()
+		s.fetchCancelFn = nil
+	}
+
+	provider := s.providers[s.providerI]
+
+	var ctx context.Context
+	ctx, s.fetchCancelFn = context.WithCancel(context.Background())
+
+	go func() {
+		var streams []stremio.Stream
+
+		if s.EpisodeName != "" {
+			streams, _ = provider.SearchEpisode(ctx, s.Catalog.Kind, s.SearchResult.Id, s.Season, s.Episode)
+		} else {
+			streams, _ = provider.Search(ctx, s.Catalog.Kind, s.SearchResult.Id)
+		}
+
+		if streams == nil {
+			return
+		}
+
+		streams2 := make([]Stream, 0, len(streams))
+
+		for _, stream := range streams {
+			if stream.Url != "" {
+				streams2 = append(streams2, ParseStream(stream))
+			}
+		}
+
+		s.Stack.Post(streams2)
+	}()
 }

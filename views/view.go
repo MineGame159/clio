@@ -95,7 +95,7 @@ func (s *Stack) Run() {
 				view.view.HandleEvent(event)
 			}
 		} else {
-			view.updateFooter()
+			view.updateTitleFooter()
 		}
 
 		root := view.widget
@@ -171,13 +171,12 @@ func (s *stackedView) createWidget() {
 			Children:           s.view.Widgets(),
 		},
 		Runes: ui.Rounded,
-		Title: []ui.Span{{s.view.Title(), ui.Fg(color.White).Bold(true)}},
 	}
 
-	s.updateFooter()
+	s.updateTitleFooter()
 }
 
-func (s *stackedView) updateFooter() {
+func (s *stackedView) updateTitleFooter() {
 	var footer []ui.Span
 
 	for i, key := range s.view.Keys() {
@@ -190,5 +189,6 @@ func (s *stackedView) updateFooter() {
 		footer = append(footer, ui.Span{Text: " " + key.Description, Style: ui.Fg(color.Gray)})
 	}
 
+	s.widget.Title = []ui.Span{{s.view.Title(), ui.Fg(color.White).Bold(true)}}
 	s.widget.Footer = footer
 }
