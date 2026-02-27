@@ -1,11 +1,13 @@
 package main
 
 import (
+	"clio/library"
 	"clio/stremio"
 	"clio/views"
 	"encoding/json"
 	"os"
 	"path"
+	"strings"
 )
 
 type Config struct {
@@ -36,6 +38,15 @@ func main() {
 
 	// Load addons
 	for _, url := range config.Addons {
+		if strings.HasPrefix(url, "<library:") && strings.HasSuffix(url, ">") {
+			var err error
+			url, err = library.Start(url[9 : len(url)-1])
+
+			if err != nil {
+				panic(err.Error())
+			}
+		}
+
 		addon, err := stremio.Load(url)
 		if err != nil {
 			println("Failed to load addon:", err.Error())

@@ -6,6 +6,7 @@ import (
 	"clio/ui"
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/gdamore/tcell/v3"
 	"github.com/gdamore/tcell/v3/color"
@@ -104,10 +105,22 @@ func (s *Streams) HandleEvent(event any) {
 				s.input.Blur()
 				s.list.Focus()
 			} else if item, ok := s.list.Selected(); ok {
+				url := item.Url
+
+				if item.RedirectUrl {
+					client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+						return http.ErrUseLastResponse
+					}}
+
+					if res, err := client.Get(url); err == nil && res.StatusCode >= 300 && res.StatusCode <= 399 {
+						url = res.Header.Get("Location")
+					}
+				}
+
 				if s.EpisodeName != "" {
-					core.OpenMpv(fmt.Sprintf("%s - S%02dE%02d - %s", s.SearchResult.Name, s.Season, s.Episode, s.EpisodeName), item.Url)
+					core.OpenMpv(fmt.Sprintf("%s - S%02dE%02d - %s", s.SearchResult.Name, s.Season, s.Episode, s.EpisodeName), url)
 				} else {
-					core.OpenMpv(s.SearchResult.Name, item.Url)
+					core.OpenMpv(s.SearchResult.Name, url)
 				}
 
 				s.Stack.Stop()

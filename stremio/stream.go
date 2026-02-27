@@ -19,6 +19,7 @@ type Stream struct {
 	Title       string        `json:"title,omitempty"`
 	Description string        `json:"description,omitempty"`
 	Url         string        `json:"url,omitempty"`
+	RedirectUrl bool          `json:"redirectUrl"`
 	Hints       BehaviorHints `json:"behaviorHints,omitempty"`
 }
 

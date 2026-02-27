@@ -1,0 +1,30 @@
+{
+    "id": "library.clio",
+    "name": "Library",
+    "description": "Browse and stream torrents in your Real Debrid library",
+    "version": "0.1.0",
+    "catalogs": [
+        {
+            "type": "movie",
+            "id": "all",
+            "name": "All"
+        },
+        {
+            "type": "series",
+            "id": "all",
+            "name": "All"
+        }
+    ],
+    "resources": [
+        {
+            "name": "stream",
+            "types": [
+                "movie",
+                "series"
+            ],
+            "idPrefixes": [
+                "tt"
+            ]
+        }
+    ]
+}

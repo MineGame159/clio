@@ -15,7 +15,9 @@ import (
 
 type Stream struct {
 	Name string
-	Url  string
+
+	Url         string
+	RedirectUrl bool
 
 	Resolution string
 	VideoCodec string
@@ -31,6 +33,7 @@ func ParseStream(stream stremio.Stream) Stream {
 
 	s.Name = parseStreamName(stream)
 	s.Url = stream.Url
+	s.RedirectUrl = stream.RedirectUrl
 
 	names := []string{stream.TitleDescription(), s.Name, stream.Hints.Filename}
 
