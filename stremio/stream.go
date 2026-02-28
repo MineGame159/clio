@@ -19,7 +19,8 @@ type Stream struct {
 	Title       string        `json:"title,omitempty"`
 	Description string        `json:"description,omitempty"`
 	Url         string        `json:"url,omitempty"`
-	RedirectUrl bool          `json:"redirectUrl"`
+	RedirectUrl bool          `json:"redirectUrl,omitempty"`
+	CheckUrl    string        `json:"checkUrl,omitempty"`
 	Hints       BehaviorHints `json:"behaviorHints,omitempty"`
 }
 
@@ -27,6 +28,10 @@ type BehaviorHints struct {
 	BingeGroup string `json:"bingeGroup"`
 	Filename   string `json:"filename,omitempty"`
 	VideoSize  uint64 `json:"videoSize,omitempty"`
+}
+
+type StreamCheck struct {
+	Cached bool `json:"cached"`
 }
 
 // StreamProvider

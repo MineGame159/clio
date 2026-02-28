@@ -32,6 +32,11 @@ type Streams struct {
 	list  *ui.List[Stream]
 }
 
+type streamCheckResult struct {
+	checkUrl string
+	cache    CacheStatus
+}
+
 func (s *Streams) Title() string {
 	if len(s.providers) == 0 {
 		return "No addon for this media kind"
@@ -48,6 +53,10 @@ func (s *Streams) Keys() []Key {
 	} else {
 		keys = append(keys, Key{"Enter", "play"})
 		keys = append(keys, Key{"Tab", "search"})
+
+		if item, ok := s.list.Selected(); ok && item.CheckUrl != "" && item.Cache == Unknown {
+			keys = append(keys, Key{"C", "check status"})
+		}
 
 		if len(s.providers) > 1 {
 			keys = append(keys, Key{"B", "prev addon"})
@@ -134,6 +143,29 @@ func (s *Streams) HandleEvent(event any) {
 
 		case tcell.KeyRune:
 			switch event.Str() {
+			case "C", "c":
+				if item := s.list.SelectedPtr(); item != nil && item.CheckUrl != "" && item.Cache == Unknown {
+					item.Cache = Waiting
+
+					go func() {
+						check, err := core.GetJson[stremio.StreamCheck](item.CheckUrl)
+						status := Unknown
+
+						if err == nil {
+							if check.Cached {
+								status = Cached
+							} else {
+								status = Uncached
+							}
+						}
+
+						s.Stack.Post(streamCheckResult{
+							checkUrl: item.CheckUrl,
+							cache:    status,
+						})
+					}()
+				}
+
 			case "B", "b":
 				if s.list.Focused() && len(s.providers) > 1 {
 					s.providerI--
@@ -173,6 +205,13 @@ func (s *Streams) HandleEvent(event any) {
 		if value := s.input.Value(); value != "" {
 			s.list.Filter(ui.FilterFn(value, StreamText))
 		}
+
+	case streamCheckResult:
+		if item := s.list.Modify(func(item Stream) bool {
+			return item.CheckUrl == event.checkUrl
+		}); item != nil {
+			item.Cache = event.cache
+		}
 	}
 }
 
@@ -196,10 +235,6 @@ func (s *Streams) fetch() {
 			streams, _ = provider.SearchEpisode(ctx, s.Catalog.Kind, s.SearchResult.Id, s.Season, s.Episode)
 		} else {
 			streams, _ = provider.Search(ctx, s.Catalog.Kind, s.SearchResult.Id)
-		}
-
-		if streams == nil {
-			return
 		}
 
 		streams2 := make([]Stream, 0, len(streams))

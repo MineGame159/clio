@@ -2,6 +2,7 @@ package main
 
 import (
 	"clio/library"
+	"clio/scraper"
 	"clio/stremio"
 	"clio/views"
 	"encoding/json"
@@ -41,6 +42,13 @@ func main() {
 		if strings.HasPrefix(url, "<library:") && strings.HasSuffix(url, ">") {
 			var err error
 			url, err = library.Start(url[9 : len(url)-1])
+
+			if err != nil {
+				panic(err.Error())
+			}
+		} else if strings.HasPrefix(url, "<scraper:") && strings.HasSuffix(url, ">") {
+			var err error
+			url, err = scraper.Start(url[9 : len(url)-1])
 
 			if err != nil {
 				panic(err.Error())

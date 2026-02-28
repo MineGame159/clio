@@ -5,11 +5,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
 	"net/http"
+	"path"
 	"strings"
 	"unicode"
 )
+
+var videoFileExtensions = []string{".webm", ".mkv", ".flv", ".avi", ".mov", ".mp4"}
+
+func IsVideoFile(name string) bool {
+	ext := strings.ToLower(path.Ext(name))
+
+	for _, videoExt := range videoFileExtensions {
+		if ext == videoExt {
+			return true
+		}
+	}
+
+	return false
+}
 
 func Capitalize(input string) string {
 	runes := []rune(input)
@@ -49,11 +65,15 @@ func Count[T any](it iter.Seq[T]) uint {
 	return count
 }
 func GetJson[T any](url string) (T, error) {
-	return GetJsonCtx[T](context.Background(), url)
+	return DoReqJsonCtx[T](context.Background(), "GET", url, "", nil)
 }
 
 func GetJsonCtx[T any](ctx context.Context, url string) (T, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	return DoReqJsonCtx[T](ctx, "GET", url, "", nil)
+}
+
+func DoReqJsonCtx[T any](ctx context.Context, method, url, bodyContentType string, body io.Reader) (T, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		var empty T
 		return empty, err
@@ -61,6 +81,10 @@ func GetJsonCtx[T any](ctx context.Context, url string) (T, error) {
 
 	req.Header.Set("User-Agent", "clio")
 	req.Header.Set("Accept", "application/json")
+
+	if bodyContentType != "" {
+		req.Header.Set("Content-Type", bodyContentType)
+	}
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -75,11 +99,11 @@ func GetJsonCtx[T any](ctx context.Context, url string) (T, error) {
 		return empty, errors.New(fmt.Sprintf("request failed with status code: %d '%s'", res.StatusCode, res.Status))
 	}
 
-	var body T
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	var resBody T
+	if err := json.NewDecoder(res.Body).Decode(&resBody); err != nil {
 		var empty T
 		return empty, err
 	}
 
-	return body, nil
+	return resBody, nil
 }

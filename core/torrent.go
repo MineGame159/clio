@@ -14,8 +14,9 @@ type NameInfo struct {
 	Episode int
 }
 
-var seasonRegex = regexp.MustCompile("(?:^|[.\\s\\d_-])[sS](\\d{1,4})")
-var episodeRegex = regexp.MustCompile("(?:^|[.\\s\\d_-])[eE](\\d{1,4})")
+var SeasonRegex = regexp.MustCompile("(?:^|[.\\s\\d_-])[sS](\\d{1,4})")
+var EpisodeRegex = regexp.MustCompile("(?:^|[.\\s\\d_-])[eE](\\d{1,4})")
+
 var stopWordRegex = regexp.MustCompile("(?i:\\b(?:1080p|720p|2160p|4k|480p|bluray|web-?dl|webrip|bdremux|remux|hdtv|divx|xvid|x264|x265|h\\.264|h\\.265|av1|hdr|hevc|avc|10bit|aac|dts|truehd)\\b)")
 
 var replacer = strings.NewReplacer(".", " ", "_", " ", "-", " ")
@@ -38,8 +39,8 @@ func ParseTorrentName(name string) NameInfo {
 
 	// Season + Episode
 
-	seasonLoc := seasonRegex.FindStringSubmatchIndex(name)
-	episodeLoc := episodeRegex.FindStringSubmatchIndex(name)
+	seasonLoc := SeasonRegex.FindStringSubmatchIndex(name)
+	episodeLoc := EpisodeRegex.FindStringSubmatchIndex(name)
 
 	season := -1
 	episode := -1

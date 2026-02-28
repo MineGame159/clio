@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"unsafe"
 )
 
 func get[T any](token string, url string) (T, error) {
@@ -41,7 +42,7 @@ func doRequest[T any](token string, req *http.Request) (T, error) {
 
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		var body struct{ Error string }
 		if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 			var empty T
@@ -50,6 +51,11 @@ func doRequest[T any](token string, req *http.Request) (T, error) {
 
 		var empty T
 		return empty, errors.New(body.Error)
+	}
+
+	var empty T
+	if unsafe.Sizeof(empty) == 0 {
+		return empty, nil
 	}
 
 	var body T

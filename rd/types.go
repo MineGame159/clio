@@ -1,11 +1,13 @@
 package rd
 
-import "clio/core"
+import (
+	"clio/core"
+)
 
 type TorrentStatus string
 
 const (
-	MagnetStatus          TorrentStatus = "magnet_error"
+	MagnetError           TorrentStatus = "magnet_error"
 	MagnetConversion      TorrentStatus = "magnet_conversion"
 	WaitingFilesSelection TorrentStatus = "waiting_files_selection"
 	Queued                TorrentStatus = "queued"
@@ -25,7 +27,7 @@ type Torrent struct {
 	Size     core.ByteSize `json:"bytes"`
 	Host     string        `json:"host"`
 	Split    uint          `json:"split"`
-	Progress uint          `json:"progress"`
+	Progress float64       `json:"progress"`
 	Status   TorrentStatus `json:"status"`
 	Added    string        `json:"added"`
 	Ended    string        `json:"ended"`
@@ -51,4 +53,16 @@ type Download struct {
 	Chunks    uint          `json:"chunks"`
 	Download  string        `json:"download"`
 	Generated string        `json:"generated"`
+}
+
+// TorrentStatus
+
+func (t TorrentStatus) Failed() bool {
+	switch t {
+	case MagnetError, Error, Virus, Dead:
+		return true
+
+	default:
+		return false
+	}
 }

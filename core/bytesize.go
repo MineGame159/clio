@@ -25,13 +25,13 @@ func ParseByteSize(str string) (ByteSize, error) {
 	switch strings.ToLower(splits[1]) {
 	case "b":
 		unit = 1
-	case "kb":
+	case "kb", "kib":
 		unit = 1024
-	case "mb":
+	case "mb", "mib":
 		unit = 1024 * 1024
-	case "gb":
+	case "gb", "gib":
 		unit = 1024 * 1024 * 1024
-	case "tb":
+	case "tb", "tib":
 		unit = 1024 * 1024 * 1024 * 1024
 
 	default:

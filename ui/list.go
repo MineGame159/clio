@@ -56,6 +56,23 @@ func (w *List[T]) SetItems(items []T) {
 	w.pages = 0
 }
 
+func (w *List[T]) Modify(predicate func(item T) bool) *T {
+	for i := range w.items {
+		if predicate(w.items[i]) {
+			for j := range w.filtered {
+				if w.filtered[j].index == i {
+					w.filtered[j].widget = nil
+					break
+				}
+			}
+
+			return &w.items[i]
+		}
+	}
+
+	return nil
+}
+
 func (w *List[T]) Filter(predicate func(item T) bool) {
 	w.filtered = nil
 
@@ -83,6 +100,17 @@ func (w *List[T]) Selected() (T, bool) {
 	}
 
 	return w.items[w.filtered[w.selected].index], true
+}
+
+func (w *List[T]) SelectedPtr() *T {
+	if w.selected >= len(w.filtered) {
+		return nil
+	}
+
+	filtered := &w.filtered[w.selected]
+	filtered.widget = nil
+
+	return &w.items[filtered.index]
 }
 
 func (w *List[T]) Focus() {

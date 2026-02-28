@@ -18,13 +18,25 @@ type Stream struct {
 
 	Url         string
 	RedirectUrl bool
+	CheckUrl    string
 
 	Resolution string
 	VideoCodec string
 	AudioCodec string
 	Seeders    int
 	Size       core.ByteSize
+
+	Cache CacheStatus
 }
+
+type CacheStatus uint8
+
+const (
+	Unknown CacheStatus = iota
+	Waiting
+	Uncached
+	Cached
+)
 
 // Parsing
 
@@ -34,6 +46,7 @@ func ParseStream(stream stremio.Stream) Stream {
 	s.Name = parseStreamName(stream)
 	s.Url = stream.Url
 	s.RedirectUrl = stream.RedirectUrl
+	s.CheckUrl = stream.CheckUrl
 
 	names := []string{stream.TitleDescription(), s.Name, stream.Hints.Filename}
 
@@ -179,18 +192,28 @@ func StreamWidget(stream Stream, selected bool) ui.Widget {
 
 	spans := []ui.Span{{stream.Name + "\n", style}}
 
-	addStreamMeta(&spans, stream.Resolution)
-	addStreamMeta(&spans, stream.VideoCodec)
-	addStreamMeta(&spans, stream.AudioCodec)
+	addStreamMeta(&spans, stream.Resolution, color.Gray)
+	addStreamMeta(&spans, stream.VideoCodec, color.Gray)
+	addStreamMeta(&spans, stream.AudioCodec, color.Gray)
 	if stream.Seeders >= 0 {
-		addStreamMeta(&spans, fmt.Sprintf("%d seeders", stream.Seeders))
+		addStreamMeta(&spans, fmt.Sprintf("%d seeders", stream.Seeders), color.Gray)
 	}
-	addStreamMeta(&spans, stream.Size.String())
+	addStreamMeta(&spans, stream.Size.String(), color.Gray)
+
+	switch stream.Cache {
+	case Unknown:
+	case Waiting:
+		addStreamMeta(&spans, "...", color.Gray)
+	case Uncached:
+		addStreamMeta(&spans, "Uncached", color.Black)
+	case Cached:
+		addStreamMeta(&spans, "Cached", color.Olive)
+	}
 
 	return &ui.Paragraph{Spans: spans}
 }
 
-func addStreamMeta(spans *[]ui.Span, value string) {
+func addStreamMeta(spans *[]ui.Span, value string, fg color.Color) {
 	if value == "" {
 		return
 	}
@@ -199,5 +222,5 @@ func addStreamMeta(spans *[]ui.Span, value string) {
 		*spans = append(*spans, ui.Span{Text: ", ", Style: ui.Fg(color.Silver)})
 	}
 
-	*spans = append(*spans, ui.Span{Text: value, Style: ui.Fg(color.Gray)})
+	*spans = append(*spans, ui.Span{Text: value, Style: ui.Fg(fg)})
 }

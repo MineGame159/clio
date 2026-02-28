@@ -1,0 +1,18 @@
+{
+    "id": "scraper.clio",
+    "name": "Scraper",
+    "description": "Scrape various sources for media torrents",
+    "version": "0.1.0",
+    "resources": [
+        {
+            "name": "stream",
+            "types": [
+                "movie",
+                "series"
+            ],
+            "idPrefixes": [
+                "tt"
+            ]
+        }
+    ]
+}
