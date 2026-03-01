@@ -1,13 +1,14 @@
 package library
 
 import (
+	"clio/core"
 	"clio/stremio"
 	"cmp"
 	"net/http"
 	"slices"
 )
 
-func (a *addon) handleCatalog(res http.ResponseWriter, req *http.Request) {
+func (a *Addon) handleCatalog(res http.ResponseWriter, req *http.Request) {
 	kind := stremio.MediaKind(req.PathValue("kind"))
 
 	// Fetch results based on requested media kind
@@ -28,7 +29,7 @@ func (a *addon) handleCatalog(res http.ResponseWriter, req *http.Request) {
 	})
 
 	// Write response
-	writeJson(res, struct {
+	core.WriteJson(res, struct {
 		Metas []stremio.SearchResult
 	}{results})
 }

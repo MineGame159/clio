@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"bytes"
+	"clio/core"
 	"clio/scraper/indexers"
 	"clio/stremio"
 	"cmp"
@@ -19,13 +20,13 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	id, _ := strings.CutSuffix(req.PathValue("id"), ".json")
 
 	if !strings.HasPrefix(id, "tt") {
-		writeError(res, "Invalid ID prefix", http.StatusBadRequest)
+		core.WriteError(res, "Invalid ID prefix", http.StatusBadRequest)
 		return
 	}
 
 	id, season, episode, err := parseId(id)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -115,7 +116,7 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Write response
-	writeJson(res, struct {
+	core.WriteJson(res, struct {
 		Streams []stremio.Stream
 	}{streams})
 }

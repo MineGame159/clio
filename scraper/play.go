@@ -16,28 +16,28 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	// Read magnet link
 	magnet, hash, err := readMagnet(req)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Read season
 	season, err := strconv.Atoi(req.PathValue("season"))
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Episode
 	episode, err := strconv.Atoi(req.PathValue("episode"))
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Find existing torrent with the same hash
 	torrents, err := rd.GetAllTorrents(a.token)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -45,7 +45,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 		if torrent.Hash == hash {
 			download, err := a.getDownloadFromTorrent(torrent.Id, season, episode)
 			if err != nil {
-				writeError(res, err.Error(), http.StatusBadRequest)
+				core.WriteError(res, err.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -61,13 +61,13 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	// Add magnet to library
 	id, err := rd.AddMagnet(a.token, magnet)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Select files
 	if err := a.selectFilesFromTorrent(id, season == -1 && episode == -1); err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	// Redirect
 	download, err := a.getDownloadFromTorrent(id, season, episode)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 

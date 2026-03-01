@@ -4,15 +4,12 @@ import (
 	"clio/core"
 	"clio/rd"
 	"clio/stremio"
-	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
-	"strconv"
 	"sync"
 )
 
-type addon struct {
+type Addon struct {
 	token   string
 	baseUrl string
 
@@ -31,7 +28,7 @@ type mediaInfo struct {
 
 func Start(token string) (string, error) {
 	// Initialize addon
-	a := &addon{
+	a := &Addon{
 		token: token,
 		media: make(map[string]mediaInfo),
 	}
@@ -49,21 +46,16 @@ func Start(token string) (string, error) {
 	mux.HandleFunc("GET /play/{id}", a.handlePlay)
 
 	// Listen
-	listener, err := net.Listen("tcp", ":0")
+	var err error
+	a.baseUrl, err = core.ListenAndServe(mux)
 	if err != nil {
 		return "", err
 	}
 
-	//goland:noinspection GoUnhandledErrorResult
-	go http.Serve(listener, mux)
-
-	a.baseUrl = "http://localhost:" + strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
-	address := a.baseUrl + "/manifest.json"
-
-	return address, nil
+	return a.baseUrl + "/manifest.json", nil
 }
 
-func (a *addon) fetchMedia() error {
+func (a *Addon) fetchMedia() error {
 	torrents, err := rd.GetAllTorrents(a.token)
 	if err != nil {
 		return err
@@ -136,16 +128,4 @@ func (a *addon) fetchMedia() error {
 	}
 
 	return nil
-}
-
-func writeJson(res http.ResponseWriter, data any) {
-	res.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(res).Encode(data)
-}
-
-func writeError(res http.ResponseWriter, msg string, code int) {
-	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(code)
-
-	_, _ = fmt.Fprintf(res, "{\"error\":\"%s\"}", msg)
 }

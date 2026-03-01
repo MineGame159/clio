@@ -14,18 +14,18 @@ import (
 	"sync"
 )
 
-func (a *addon) handleStream(res http.ResponseWriter, req *http.Request) {
+func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	// Parse ID
 	id, _ := strings.CutSuffix(req.PathValue("id"), ".json")
 
 	if !strings.HasPrefix(id, "tt") {
-		writeError(res, "Invalid ID prefix", http.StatusBadRequest)
+		core.WriteError(res, "Invalid ID prefix", http.StatusBadRequest)
 		return
 	}
 
 	id, season, episode, err := parseId(id)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -77,12 +77,12 @@ func (a *addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	})
 
 	// Write response
-	writeJson(res, struct {
+	core.WriteJson(res, struct {
 		Streams []stremio.Stream
 	}{streams})
 }
 
-func (a *addon) getStream(file rd.File, filename string) stremio.Stream {
+func (a *Addon) getStream(file rd.File, filename string) stremio.Stream {
 	id := file.Link
 	if index := strings.LastIndexByte(id, '/'); index != -1 {
 		id = id[index+1:]

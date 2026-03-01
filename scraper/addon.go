@@ -1,11 +1,8 @@
 package scraper
 
 import (
-	"encoding/json"
-	"fmt"
-	"net"
+	"clio/core"
 	"net/http"
-	"strconv"
 )
 
 type Addon struct {
@@ -28,28 +25,11 @@ func Start(token string) (string, error) {
 	mux.HandleFunc("GET /play/{magnet}/{season}/{episode}", a.handlePlay)
 
 	// Listen
-	listener, err := net.Listen("tcp", ":0")
+	var err error
+	a.baseUrl, err = core.ListenAndServe(mux)
 	if err != nil {
 		return "", err
 	}
 
-	//goland:noinspection GoUnhandledErrorResult
-	go http.Serve(listener, mux)
-
-	a.baseUrl = "http://localhost:" + strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
-	address := a.baseUrl + "/manifest.json"
-
-	return address, nil
-}
-
-func writeJson(res http.ResponseWriter, data any) {
-	res.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(res).Encode(data)
-}
-
-func writeError(res http.ResponseWriter, msg string, code int) {
-	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(code)
-
-	_, _ = fmt.Fprintf(res, "{\"error\":\"%s\"}", msg)
+	return a.baseUrl + "/manifest.json", nil
 }

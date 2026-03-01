@@ -47,6 +47,10 @@ func SimpleItemDisplayFn[T any](itemTextFn func(item T) string, selectedStyle tc
 }
 
 func (w *List[T]) setSelected(index, direction int) {
+	if len(w.filtered) == 0 {
+		return
+	}
+
 	if index < 0 || index >= len(w.filtered) {
 		if direction > 0 {
 			index = 0

@@ -1,6 +1,7 @@
 package scraper
 
 import (
+	"clio/core"
 	"clio/rd"
 	"clio/stremio"
 	"net/http"
@@ -12,28 +13,28 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	// Read magnet link
 	magnet, _, err := readMagnet(req)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Read season
 	season, err := strconv.Atoi(req.PathValue("season"))
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Episode
 	episode, err := strconv.Atoi(req.PathValue("episode"))
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Add magnet to library
 	id, err := rd.AddMagnet(a.token, magnet)
 	if err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -41,7 +42,7 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	if err := a.selectFilesFromTorrent(id, season == -1 && episode == -1); err != nil {
 		_ = rd.DeleteTorrent(a.token, id)
 
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -55,7 +56,7 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			_ = rd.DeleteTorrent(a.token, id)
 
-			writeError(res, err.Error(), http.StatusBadRequest)
+			core.WriteError(res, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -71,12 +72,12 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 
 	// Delete torrent
 	if err := rd.DeleteTorrent(a.token, id); err != nil {
-		writeError(res, err.Error(), http.StatusBadRequest)
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Response
-	writeJson(res, stremio.StreamCheck{
+	core.WriteJson(res, stremio.StreamCheck{
 		Cached: cached,
 	})
 }
