@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/gdamore/tcell/v3"
 	"github.com/gdamore/tcell/v3/color"
@@ -11,8 +12,9 @@ import (
 type List[T any] struct {
 	baseWidget
 
-	ItemDisplayFn func(item T, selected bool) Widget
-	ItemHeight    int
+	ItemDisplayFn    func(item T, selected bool) Widget
+	ItemSelectableFn func(item T) bool
+	ItemHeight       int
 
 	SelectedStr   string
 	SelectedStyle tcell.Style
@@ -28,8 +30,9 @@ type List[T any] struct {
 }
 
 type filteredItem struct {
-	index  int
-	widget Widget
+	index      int
+	selectable bool
+	widget     Widget
 }
 
 func SimpleItemDisplayFn[T any](itemTextFn func(item T) string, selectedStyle tcell.Style) func(item T, selected bool) Widget {
@@ -43,15 +46,49 @@ func SimpleItemDisplayFn[T any](itemTextFn func(item T) string, selectedStyle tc
 	}
 }
 
+func (w *List[T]) setSelected(index, direction int) {
+	if index < 0 || index >= len(w.filtered) {
+		if direction > 0 {
+			index = 0
+		} else {
+			index = len(w.filtered) - 1
+		}
+	}
+
+	for !w.filtered[index].selectable && ((direction > 0 && index < len(w.filtered)-1) || (direction <= 0 && index > 0)) {
+		index += direction
+	}
+
+	if w.filtered[index].selectable {
+		if w.selected >= 0 && w.selected < len(w.filtered) {
+			w.filtered[w.selected].widget = nil
+		}
+
+		w.selected = index
+		w.filtered[index].widget = nil
+	}
+}
+
 func (w *List[T]) SetItems(items []T) {
 	w.items = items
 	w.filtered = make([]filteredItem, len(items))
 
 	for i := range len(items) {
-		w.filtered[i].index = i
+		selectable := true
+		if w.ItemSelectableFn != nil {
+			selectable = w.ItemSelectableFn(items[i])
+		}
+
+		w.filtered[i] = filteredItem{
+			index:      i,
+			selectable: selectable,
+			widget:     nil,
+		}
 	}
 
-	w.selected = 0
+	w.selected = math.MaxInt
+	w.setSelected(0, 1)
+
 	w.itemsPerPage = 0
 	w.pages = 0
 }
@@ -78,19 +115,28 @@ func (w *List[T]) Filter(predicate func(item T) bool) {
 
 	for i, item := range w.items {
 		if predicate(item) {
-			w.filtered = append(w.filtered, filteredItem{i, nil})
+			selectable := true
+			if w.ItemSelectableFn != nil {
+				selectable = w.ItemSelectableFn(item)
+			}
+
+			w.filtered = append(w.filtered, filteredItem{
+				i,
+				selectable,
+				nil,
+			})
 		}
 	}
 
-	w.selected = 0
+	w.selected = math.MaxInt
+	w.setSelected(0, 1)
+
 	w.itemsPerPage = 0
 	w.pages = 0
 }
 
 func (w *List[T]) Select(index int) {
-	if index < len(w.filtered) {
-		w.selected = index
-	}
+	w.setSelected(index, 1)
 }
 
 func (w *List[T]) Selected() (T, bool) {
@@ -150,36 +196,23 @@ func (w *List[T]) HandleEvent(event any) {
 		switch event.Key() {
 		case tcell.KeyUp:
 			if w.selected > 0 {
-				w.filtered[w.selected].widget = nil
-				w.filtered[w.selected-1].widget = nil
-
-				w.selected--
+				w.setSelected(w.selected-1, -1)
 			}
 
 		case tcell.KeyDown:
 			if w.selected < len(w.filtered)-1 {
-				w.filtered[w.selected].widget = nil
-				w.filtered[w.selected+1].widget = nil
-
-				w.selected++
+				w.setSelected(w.selected+1, 1)
 			}
 
 		case tcell.KeyLeft:
 			if w.itemsPerPage > 0 && w.selected >= w.itemsPerPage {
-				w.filtered[w.selected].widget = nil
-				w.filtered[w.selected-w.itemsPerPage].widget = nil
-
-				w.selected -= w.itemsPerPage
+				w.setSelected(w.selected-w.itemsPerPage, -1)
 			}
 
 		case tcell.KeyRight:
 			if w.itemsPerPage > 0 && w.selected/w.itemsPerPage < w.pages-1 {
 				newIndex := min(w.selected+w.itemsPerPage, len(w.filtered)-1)
-
-				w.filtered[w.selected].widget = nil
-				w.filtered[newIndex].widget = nil
-
-				w.selected = newIndex
+				w.setSelected(newIndex, 1)
 			}
 
 		default:
