@@ -68,7 +68,7 @@ func ParseTorrentName(name string) NameInfo {
 	// Return
 
 	return NameInfo{
-		Name:    replacer.Replace(name),
+		Name:    strings.TrimSpace(replacer.Replace(name)),
 		Season:  season,
 		Episode: episode,
 	}

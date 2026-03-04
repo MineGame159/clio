@@ -4,7 +4,7 @@ import (
 	"clio/core"
 	"clio/rd"
 	"clio/stremio"
-	"fmt"
+	"errors"
 	"net/http"
 	"sync"
 )
@@ -79,6 +79,11 @@ func (a *Addon) fetchMedia() error {
 	}
 
 	// Fetch IMDB IDs for grouped media
+	cache := newImdbCache()
+
+	//goland:noinspection GoUnhandledErrorResult
+	defer cache.Save()
+
 	wg := sync.WaitGroup{}
 	media := make(chan mediaInfo)
 
@@ -91,15 +96,12 @@ func (a *Addon) fetchMedia() error {
 				kind = stremio.Series
 			}
 
-			url := fmt.Sprintf("https://v3-cinemeta.strem.io/catalog/%s/top/search=%s.json", kind, info.Name)
+			meta, err := cache.Get(kind, info.Name)
+			if err != nil && !errors.Is(err, noResult) {
+				panic(err.Error())
+			}
 
-			body, err := core.GetJson[struct {
-				Metas []stremio.SearchResult
-			}](url)
-
-			if err == nil && len(body.Metas) > 0 {
-				meta := body.Metas[0]
-
+			if err == nil {
 				for _, torrent := range torrents {
 					media <- mediaInfo{
 						id:         meta.Id,
