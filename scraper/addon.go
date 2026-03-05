@@ -2,18 +2,19 @@ package scraper
 
 import (
 	"clio/core"
+	"clio/rd"
 	"net/http"
 )
 
 type Addon struct {
-	token   string
+	rd      *rd.Client
 	baseUrl string
 }
 
 func Start(token string) (string, error) {
 	// Initialize addon
 	a := &Addon{
-		token: token,
+		rd: rd.NewClient(token),
 	}
 
 	// Routes

@@ -10,7 +10,7 @@ import (
 )
 
 type Addon struct {
-	token   string
+	rd      *rd.Client
 	baseUrl string
 
 	media map[string]mediaInfo
@@ -29,7 +29,7 @@ type mediaInfo struct {
 func Start(token string) (string, error) {
 	// Initialize addon
 	a := &Addon{
-		token: token,
+		rd:    rd.NewClient(token),
 		media: make(map[string]mediaInfo),
 	}
 
@@ -56,7 +56,7 @@ func Start(token string) (string, error) {
 }
 
 func (a *Addon) fetchMedia() error {
-	torrents, err := rd.GetAllTorrents(a.token)
+	torrents, err := a.rd.GetAllTorrents()
 	if err != nil {
 		return err
 	}

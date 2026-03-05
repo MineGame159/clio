@@ -3,12 +3,15 @@ package library
 import (
 	"clio/core"
 	"clio/stremio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path"
 	"sync"
+
+	"golang.org/x/sync/semaphore"
 )
 
 var noResult = errors.New("no result")
@@ -20,6 +23,7 @@ type imdbCache struct {
 	Other  map[string]stremio.SearchResult `json:"other"`
 
 	mutex sync.Mutex
+	sem   *semaphore.Weighted
 }
 
 func newImdbCache() *imdbCache {
@@ -28,6 +32,7 @@ func newImdbCache() *imdbCache {
 		Series: make(map[string]stremio.SearchResult),
 		Anime:  make(map[string]stremio.SearchResult),
 		Other:  make(map[string]stremio.SearchResult),
+		sem:    semaphore.NewWeighted(8),
 	}
 
 	if err := cache.Load(); err != nil {
@@ -39,7 +44,6 @@ func newImdbCache() *imdbCache {
 
 func (i *imdbCache) Get(kind stremio.MediaKind, name string) (stremio.SearchResult, error) {
 	i.mutex.Lock()
-	defer i.mutex.Unlock()
 
 	var cache map[string]stremio.SearchResult
 
@@ -52,13 +56,23 @@ func (i *imdbCache) Get(kind stremio.MediaKind, name string) (stremio.SearchResu
 		cache = i.Anime
 	case stremio.Other:
 		cache = i.Other
+
 	default:
+		i.mutex.Unlock()
 		panic("imdbIdCache.Get() - Invalid media kind")
 	}
 
+	// Try to get result from cache
 	if id, ok := cache[name]; ok {
+		i.mutex.Unlock()
 		return id, nil
 	}
+
+	// Fetch result from API
+	i.mutex.Unlock()
+
+	_ = i.sem.Acquire(context.Background(), 1)
+	defer i.sem.Release(1)
 
 	url := fmt.Sprintf("https://v3-cinemeta.strem.io/catalog/%s/top/search=%s.json", kind, name)
 
@@ -72,6 +86,10 @@ func (i *imdbCache) Get(kind stremio.MediaKind, name string) (stremio.SearchResu
 	if len(body.Metas) == 0 {
 		return stremio.SearchResult{}, noResult
 	}
+
+	// Store result in cache
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
 
 	cache[name] = body.Metas[0]
 

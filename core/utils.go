@@ -7,7 +7,7 @@ import (
 	"unicode"
 )
 
-var videoFileExtensions = []string{".webm", ".mkv", ".flv", ".avi", ".mov", ".mp4"}
+var videoFileExtensions = []string{".webm", ".mkv", ".flv", ".avi", ".mov", ".mp4", ".ts", ".m4v"}
 
 func IsVideoFile(name string) bool {
 	ext := strings.ToLower(path.Ext(name))

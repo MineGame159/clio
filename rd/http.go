@@ -1,6 +1,7 @@
 package rd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,30 +10,33 @@ import (
 	"unsafe"
 )
 
-func get[T any](token string, url string) (T, error) {
+func get[T any](c *Client, url string) (T, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		var empty T
 		return empty, err
 	}
 
-	return doRequest[T](token, req)
+	return doRequest[T](c, req)
 }
 
-func post[T any](token string, url string, values url.Values) (T, error) {
+func post[T any](c *Client, url string, values url.Values) (T, error) {
 	req, err := http.NewRequest("POST", url, strings.NewReader(values.Encode()))
 	if err != nil {
 		var empty T
 		return empty, err
 	}
 
-	return doRequest[T](token, req)
+	return doRequest[T](c, req)
 }
 
-func doRequest[T any](token string, req *http.Request) (T, error) {
+func doRequest[T any](c *Client, req *http.Request) (T, error) {
+	_ = c.sem.Acquire(context.Background(), 1)
+	defer c.sem.Release(1)
+
 	req.Header.Set("User-Agent", "clio")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+c.token)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

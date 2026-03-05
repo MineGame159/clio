@@ -35,7 +35,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Find existing torrent with the same hash
-	torrents, err := rd.GetAllTorrents(a.token)
+	torrents, err := a.rd.GetAllTorrents()
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -59,7 +59,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Add magnet to library
-	id, err := rd.AddMagnet(a.token, magnet)
+	id, err := a.rd.AddMagnet(magnet)
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -86,7 +86,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Addon) selectFilesFromTorrent(id string, movie bool) error {
-	_, files, err := rd.GetTorrent(a.token, id)
+	_, files, err := a.rd.GetTorrent(id)
 	if err != nil {
 		return err
 	}
@@ -121,18 +121,18 @@ func (a *Addon) selectFilesFromTorrent(id string, movie bool) error {
 		fileIds = append(fileIds, biggestFile.Id)
 	}
 
-	return rd.SelectFiles(a.token, id, fileIds)
+	return a.rd.SelectFiles(id, fileIds)
 }
 
 func (a *Addon) getDownloadFromTorrent(id string, season, episode int) (string, error) {
-	_, files, err := rd.GetTorrent(a.token, id)
+	_, files, err := a.rd.GetTorrent(id)
 	if err != nil {
 		return "", err
 	}
 
 	for _, file := range files {
 		if fileMatches(file, season, episode) {
-			download, err := rd.GetDownloadLink(a.token, file.Link)
+			download, err := a.rd.GetDownloadLink(file.Link)
 			if err != nil {
 				return "", err
 			}

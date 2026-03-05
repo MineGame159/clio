@@ -32,7 +32,7 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Add magnet to library
-	id, err := rd.AddMagnet(a.token, magnet)
+	id, err := a.rd.AddMagnet(magnet)
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -40,7 +40,7 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 
 	// Select files
 	if err := a.selectFilesFromTorrent(id, season == -1 && episode == -1); err != nil {
-		_ = rd.DeleteTorrent(a.token, id)
+		_ = a.rd.DeleteTorrent(id)
 
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -52,9 +52,9 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	for i := 0; i < 10; i++ {
 		time.Sleep(time.Millisecond * 250)
 
-		torrent, _, err := rd.GetTorrent(a.token, id)
+		torrent, _, err := a.rd.GetTorrent(id)
 		if err != nil {
-			_ = rd.DeleteTorrent(a.token, id)
+			_ = a.rd.DeleteTorrent(id)
 
 			core.WriteError(res, err.Error(), http.StatusBadRequest)
 			return
@@ -71,7 +71,7 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Delete torrent
-	if err := rd.DeleteTorrent(a.token, id); err != nil {
+	if err := a.rd.DeleteTorrent(id); err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
