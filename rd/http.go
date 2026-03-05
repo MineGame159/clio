@@ -7,66 +7,90 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unsafe"
 )
 
-func get[T any](c *Client, url string) (T, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func get[T any](c *Client, ctx context.Context, url string) (T, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		var empty T
 		return empty, err
 	}
 
-	return doRequest[T](c, req)
+	return doRequest[T](c, ctx, req)
 }
 
-func post[T any](c *Client, url string, values url.Values) (T, error) {
-	req, err := http.NewRequest("POST", url, strings.NewReader(values.Encode()))
+func post[T any](c *Client, ctx context.Context, url string, values url.Values) (T, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(values.Encode()))
 	if err != nil {
 		var empty T
 		return empty, err
 	}
 
-	return doRequest[T](c, req)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	return doRequest[T](c, ctx, req)
 }
 
-func doRequest[T any](c *Client, req *http.Request) (T, error) {
-	_ = c.sem.Acquire(context.Background(), 1)
+func doRequest[T any](c *Client, ctx context.Context, req *http.Request) (T, error) {
+	_ = c.sem.Acquire(ctx, 1)
 	defer c.sem.Release(1)
 
 	req.Header.Set("User-Agent", "clio")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		var empty T
-		return empty, err
-	}
+	waitTime := time.Millisecond * 256
 
-	defer res.Body.Close()
-
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		var body struct{ Error string }
-		if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+	for i := 0; ; i++ {
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
 			var empty T
 			return empty, err
 		}
 
+		if res.StatusCode == http.StatusTooManyRequests && i < 7 {
+			_ = res.Body.Close()
+
+			time.Sleep(waitTime)
+			waitTime += time.Millisecond * 100
+
+			if req.GetBody != nil {
+				if body, err := req.GetBody(); err == nil {
+					req.Body = body
+				}
+			}
+
+			continue
+		}
+
+		if res.StatusCode < 200 || res.StatusCode >= 300 {
+			var body struct{ Error string }
+			if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+				_ = res.Body.Close()
+				var empty T
+				return empty, err
+			}
+
+			_ = res.Body.Close()
+			var empty T
+			return empty, errors.New(body.Error)
+		}
+
 		var empty T
-		return empty, errors.New(body.Error)
-	}
+		if unsafe.Sizeof(empty) == 0 {
+			return empty, nil
+		}
 
-	var empty T
-	if unsafe.Sizeof(empty) == 0 {
-		return empty, nil
-	}
+		var body T
+		if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+			_ = res.Body.Close()
+			var empty T
+			return empty, err
+		}
 
-	var body T
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		var empty T
-		return empty, err
+		_ = res.Body.Close()
+		return body, nil
 	}
-
-	return body, nil
 }

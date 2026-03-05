@@ -36,7 +36,7 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	if info, ok := a.media[id]; ok {
 		for _, id := range info.torrentIds {
 			wg.Go(func() {
-				if _, tFiles, err := a.rd.GetTorrent(id); err == nil {
+				if _, tFiles, err := a.rd.GetTorrent(req.Context(), id); err == nil {
 					for _, file := range tFiles {
 						if file.Link != "" {
 							files <- file

@@ -1,6 +1,7 @@
 package rd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -19,22 +20,22 @@ type Client struct {
 func NewClient(token string) *Client {
 	return &Client{
 		token: token,
-		sem:   semaphore.NewWeighted(1),
+		sem:   semaphore.NewWeighted(2),
 	}
 }
 
-func (c *Client) GetDownloads(page uint) ([]Download, error) {
+func (c *Client) GetDownloads(ctx context.Context, page uint) ([]Download, error) {
 	url_ := fmt.Sprintf("%s/downloads?limit=100&page=%d", base, page)
-	return get[[]Download](c, url_)
+	return get[[]Download](c, ctx, url_)
 }
 
-func (c *Client) GetAllDownloads() ([]Download, error) {
+func (c *Client) GetAllDownloads(ctx context.Context) ([]Download, error) {
 	var downloads []Download
 
 	page := uint(1)
 
 	for {
-		pageDownloads, err := c.GetDownloads(page)
+		pageDownloads, err := c.GetDownloads(ctx, page)
 		if err != nil {
 			return nil, err
 		}
@@ -49,15 +50,15 @@ func (c *Client) GetAllDownloads() ([]Download, error) {
 	return downloads, nil
 }
 
-func (c *Client) Unrestrict(link string) (Download, error) {
+func (c *Client) Unrestrict(ctx context.Context, link string) (Download, error) {
 	url_ := fmt.Sprintf("%s/unrestrict/link", base)
 	values := url.Values{"link": {link}}
-	return post[Download](c, url_, values)
+	return post[Download](c, ctx, url_, values)
 }
 
-func (c *Client) GetDownloadLink(link string) (string, error) {
+func (c *Client) GetDownloadLink(ctx context.Context, link string) (string, error) {
 	// Try to find an existing download link
-	downloads, err := c.GetAllDownloads()
+	downloads, err := c.GetAllDownloads(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -69,7 +70,7 @@ func (c *Client) GetDownloadLink(link string) (string, error) {
 	}
 
 	// Generate a download link
-	download, err := c.Unrestrict(link)
+	download, err := c.Unrestrict(ctx, link)
 	if err != nil {
 		return "", err
 	}
@@ -77,18 +78,18 @@ func (c *Client) GetDownloadLink(link string) (string, error) {
 	return download.Download, nil
 }
 
-func (c *Client) GetTorrents(page uint) ([]Torrent, error) {
+func (c *Client) GetTorrents(ctx context.Context, page uint) ([]Torrent, error) {
 	url_ := fmt.Sprintf("%s/torrents?limit=100&page=%d", base, page)
-	return get[[]Torrent](c, url_)
+	return get[[]Torrent](c, ctx, url_)
 }
 
-func (c *Client) GetAllTorrents() ([]Torrent, error) {
+func (c *Client) GetAllTorrents(ctx context.Context) ([]Torrent, error) {
 	var torrents []Torrent
 
 	page := uint(1)
 
 	for {
-		pageTorrents, err := c.GetTorrents(page)
+		pageTorrents, err := c.GetTorrents(ctx, page)
 		if err != nil {
 			return nil, err
 		}
@@ -103,14 +104,14 @@ func (c *Client) GetAllTorrents() ([]Torrent, error) {
 	return torrents, nil
 }
 
-func (c *Client) GetTorrent(id string) (Torrent, []File, error) {
+func (c *Client) GetTorrent(ctx context.Context, id string) (Torrent, []File, error) {
 	url_ := fmt.Sprintf("%s/torrents/info/%s", base, id)
 
 	body, err := get[struct {
 		Torrent
 		Files []File
 		Links []string
-	}](c, url_)
+	}](c, ctx, url_)
 	if err != nil {
 		return Torrent{}, nil, err
 	}
@@ -129,13 +130,13 @@ func (c *Client) GetTorrent(id string) (Torrent, []File, error) {
 	return body.Torrent, body.Files, nil
 }
 
-func (c *Client) AddMagnet(magnet string) (string, error) {
+func (c *Client) AddMagnet(ctx context.Context, magnet string) (string, error) {
 	url_ := fmt.Sprintf("%s/torrents/addMagnet", base)
 	values := url.Values{"magnet": {magnet}}
 
 	body, err := post[struct {
 		Id string
-	}](c, url_, values)
+	}](c, ctx, url_, values)
 	if err != nil {
 		return "", err
 	}
@@ -143,7 +144,7 @@ func (c *Client) AddMagnet(magnet string) (string, error) {
 	return body.Id, nil
 }
 
-func (c *Client) SelectFiles(id string, fileIds []uint) error {
+func (c *Client) SelectFiles(ctx context.Context, id string, fileIds []uint) error {
 	url_ := fmt.Sprintf("%s/torrents/selectFiles/%s", base, id)
 
 	var strFileIds strings.Builder
@@ -158,11 +159,11 @@ func (c *Client) SelectFiles(id string, fileIds []uint) error {
 
 	values := url.Values{"files": {strFileIds.String()}}
 
-	_, err := post[struct{}](c, url_, values)
+	_, err := post[struct{}](c, ctx, url_, values)
 	return err
 }
 
-func (c *Client) DeleteTorrent(id string) error {
+func (c *Client) DeleteTorrent(ctx context.Context, id string) error {
 	url_ := fmt.Sprintf("%s/torrents/delete/%s", base, id)
 
 	req, err := http.NewRequest("DELETE", url_, nil)
@@ -170,6 +171,6 @@ func (c *Client) DeleteTorrent(id string) error {
 		return err
 	}
 
-	_, err = doRequest[struct{}](c, req)
+	_, err = doRequest[struct{}](c, ctx, req)
 	return err
 }

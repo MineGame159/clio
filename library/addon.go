@@ -4,6 +4,7 @@ import (
 	"clio/core"
 	"clio/rd"
 	"clio/stremio"
+	"context"
 	"errors"
 	"net/http"
 	"sync"
@@ -56,7 +57,7 @@ func Start(token string) (string, error) {
 }
 
 func (a *Addon) fetchMedia() error {
-	torrents, err := a.rd.GetAllTorrents()
+	torrents, err := a.rd.GetAllTorrents(context.Background())
 	if err != nil {
 		return err
 	}

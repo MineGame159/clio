@@ -3,6 +3,7 @@ package scraper
 import (
 	"clio/core"
 	"clio/rd"
+	"context"
 	"encoding/base64"
 	"io"
 	"net/http"
@@ -35,7 +36,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Find existing torrent with the same hash
-	torrents, err := a.rd.GetAllTorrents()
+	torrents, err := a.rd.GetAllTorrents(req.Context())
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -43,7 +44,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 
 	for _, torrent := range torrents {
 		if torrent.Hash == hash {
-			download, err := a.getDownloadFromTorrent(torrent.Id, season, episode)
+			download, err := a.getDownloadFromTorrent(req.Context(), torrent.Id, season, episode)
 			if err != nil {
 				core.WriteError(res, err.Error(), http.StatusBadRequest)
 				return
@@ -59,14 +60,14 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Add magnet to library
-	id, err := a.rd.AddMagnet(magnet)
+	id, err := a.rd.AddMagnet(req.Context(), magnet)
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Select files
-	if err := a.selectFilesFromTorrent(id, season == -1 && episode == -1); err != nil {
+	if err := a.selectFilesFromTorrent(req.Context(), id, season == -1 && episode == -1); err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -74,7 +75,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	time.Sleep(time.Millisecond * 250)
 
 	// Redirect
-	download, err := a.getDownloadFromTorrent(id, season, episode)
+	download, err := a.getDownloadFromTorrent(req.Context(), id, season, episode)
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -85,8 +86,8 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (a *Addon) selectFilesFromTorrent(id string, movie bool) error {
-	_, files, err := a.rd.GetTorrent(id)
+func (a *Addon) selectFilesFromTorrent(ctx context.Context, id string, movie bool) error {
+	_, files, err := a.rd.GetTorrent(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -121,18 +122,18 @@ func (a *Addon) selectFilesFromTorrent(id string, movie bool) error {
 		fileIds = append(fileIds, biggestFile.Id)
 	}
 
-	return a.rd.SelectFiles(id, fileIds)
+	return a.rd.SelectFiles(ctx, id, fileIds)
 }
 
-func (a *Addon) getDownloadFromTorrent(id string, season, episode int) (string, error) {
-	_, files, err := a.rd.GetTorrent(id)
+func (a *Addon) getDownloadFromTorrent(ctx context.Context, id string, season, episode int) (string, error) {
+	_, files, err := a.rd.GetTorrent(ctx, id)
 	if err != nil {
 		return "", err
 	}
 
 	for _, file := range files {
 		if fileMatches(file, season, episode) {
-			download, err := a.rd.GetDownloadLink(file.Link)
+			download, err := a.rd.GetDownloadLink(ctx, file.Link)
 			if err != nil {
 				return "", err
 			}
