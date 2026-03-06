@@ -40,12 +40,14 @@ func (w *Input) Focused() bool {
 }
 
 func (w *Input) CalcRequiredSize() (int, int) {
-	w.maxHeight = 1
-
 	w.requiredWidth = 10
 	w.requiredHeight = 1
 
 	return w.requiredWidth, w.requiredHeight
+}
+
+func (w *Input) LimitSize(width, height int) (int, int) {
+	return width, min(height, 1)
 }
 
 func (w *Input) HandleEvent(event any) {

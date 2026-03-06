@@ -12,12 +12,14 @@ type HSeparator struct {
 }
 
 func (w *HSeparator) CalcRequiredSize() (int, int) {
-	w.maxHeight = 1
-
 	w.requiredWidth = 1
 	w.requiredHeight = 1
 
 	return w.requiredWidth, w.requiredHeight
+}
+
+func (w *HSeparator) LimitSize(width, height int) (int, int) {
+	return width, min(height, 1)
 }
 
 func (w *HSeparator) HandleEvent(_ any) {
@@ -39,12 +41,14 @@ type VSeparator struct {
 }
 
 func (w *VSeparator) CalcRequiredSize() (int, int) {
-	w.maxWidth = 1
-
 	w.requiredWidth = 1
 	w.requiredHeight = 1
 
 	return w.requiredWidth, w.requiredHeight
+}
+
+func (w *VSeparator) LimitSize(width, height int) (int, int) {
+	return min(width, 1), height
 }
 
 func (w *VSeparator) HandleEvent(_ any) {

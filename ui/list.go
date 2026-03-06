@@ -190,6 +190,10 @@ func (w *List[T]) CalcRequiredSize() (int, int) {
 	return w.requiredWidth, w.requiredHeight
 }
 
+func (w *List[T]) LimitSize(width, height int) (int, int) {
+	return width, height
+}
+
 func (w *List[T]) HandleEvent(event any) {
 	if !w.focused {
 		return

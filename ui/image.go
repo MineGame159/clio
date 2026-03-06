@@ -19,6 +19,7 @@ func init() {
 
 type Image struct {
 	baseWidget
+	simpleMaxSizeWidget
 
 	source *image.RGBA
 
@@ -60,6 +61,23 @@ func (w *Image) CalcRequiredSize() (int, int) {
 	return w.requiredWidth, w.requiredHeight
 }
 
+func (w *Image) LimitSize(width, height int) (int, int) {
+	width, height = w.simpleMaxSizeWidget.LimitSize(width, height)
+
+	if w.source != nil && width > 0 && height > 0 {
+		targetRatio := float64(w.source.Rect.Dx()) / float64(w.source.Rect.Dy())
+		ratio := float64(width) * 0.45 / float64(height)
+
+		if targetRatio > ratio {
+			height = int(float64(width) * 0.45 / targetRatio)
+		} else {
+			width = int(float64(height) * targetRatio / 0.45)
+		}
+	}
+
+	return width, height
+}
+
 func (w *Image) HandleEvent(_ any) {
 }
 
@@ -68,25 +86,11 @@ func (w *Image) Draw(screen tcell.Screen, rect Rect) {
 		return
 	}
 
-	// Calculate image size
-	targetRatio := float64(w.source.Rect.Dx()) / float64(w.source.Rect.Dy())
-
-	width := rect.Width
-	height := rect.Height
-
-	ratio := float64(width) * 0.45 / float64(height)
-
-	if targetRatio > ratio {
-		height = int(float64(width) * 0.45 / targetRatio)
-	} else {
-		width = int(float64(height) * targetRatio / 0.45)
-	}
-
 	// "Characterize" image
 	config := chafa.CanvasConfigNew()
 	defer chafa.CanvasConfigUnref(config)
 
-	chafa.CanvasConfigSetGeometry(config, int32(width), int32(height))
+	chafa.CanvasConfigSetGeometry(config, int32(rect.Width), int32(rect.Height))
 	chafa.CanvasConfigSetSymbolMap(config, symbolMap)
 
 	canvas := chafa.CanvasNew(config)
@@ -103,11 +107,11 @@ func (w *Image) Draw(screen tcell.Screen, rect Rect) {
 
 	// Copy canvas into screen
 	//goland:noinspection GoRedundantConversion
-	cells := unsafe.Slice((*canvasCell)(unsafe.Pointer(canvas.Cells)), width*height)
+	cells := unsafe.Slice((*canvasCell)(unsafe.Pointer(canvas.Cells)), rect.Width*rect.Height)
 
-	for x := range width {
-		for y := range height {
-			cell := cells[y*width+x]
+	for x := range rect.Width {
+		for y := range rect.Height {
+			cell := cells[y*rect.Width+x]
 
 			fg := color.NewHexColor(int32(cell.FgColor))
 			bg := color.NewHexColor(int32(cell.BgColor))

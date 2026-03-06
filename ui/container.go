@@ -17,29 +17,6 @@ type Container struct {
 	Children []Widget
 }
 
-func (w *Container) MaxSize() (int, int) {
-	if w.maxWidth == 0 && w.maxHeight == 0 {
-		maxWidth := 0
-		maxHeight := 0
-
-		if w.Direction == Vertical {
-			for _, child := range w.Children {
-				childMaxWidth, _ := child.MaxSize()
-				maxWidth = max(maxWidth, childMaxWidth)
-			}
-		} else {
-			for _, child := range w.Children {
-				_, childMaxHeight := child.MaxSize()
-				maxHeight = max(maxHeight, childMaxHeight)
-			}
-		}
-
-		return maxWidth, maxHeight
-	}
-
-	return w.maxWidth, w.maxHeight
-}
-
 func (w *Container) CalcRequiredSize() (int, int) {
 	w.requiredWidth = 0
 	w.requiredHeight = 0
@@ -51,14 +28,7 @@ func (w *Container) CalcRequiredSize() (int, int) {
 			}
 
 			width, height := child.CalcRequiredSize()
-			maxWidth, maxHeight := child.MaxSize()
-
-			if maxWidth > 0 && width > maxWidth {
-				width = maxWidth
-			}
-			if maxHeight > 0 && height > maxHeight {
-				height = maxHeight
-			}
+			width, height = child.LimitSize(width, height)
 
 			w.requiredWidth = max(w.requiredWidth, width)
 			w.requiredHeight += height
@@ -70,14 +40,7 @@ func (w *Container) CalcRequiredSize() (int, int) {
 			}
 
 			width, height := child.CalcRequiredSize()
-			maxWidth, maxHeight := child.MaxSize()
-
-			if maxWidth > 0 && width > maxWidth {
-				width = maxWidth
-			}
-			if maxHeight > 0 && height > maxHeight {
-				height = maxHeight
-			}
+			width, height = child.LimitSize(width, height)
 
 			w.requiredWidth += width
 			w.requiredHeight = max(w.requiredHeight, height)
@@ -88,6 +51,20 @@ func (w *Container) CalcRequiredSize() (int, int) {
 	w.requiredHeight += (w.Padding + w.padding) * 2
 
 	return w.requiredWidth, w.requiredHeight
+}
+
+func (w *Container) LimitSize(width, height int) (int, int) {
+	if w.Direction == Vertical {
+		for _, child := range w.Children {
+			width, _ = child.LimitSize(width, 0)
+		}
+	} else {
+		for _, child := range w.Children {
+			_, height = child.LimitSize(0, height)
+		}
+	}
+
+	return width, height
 }
 
 func (w *Container) HandleEvent(event any) {
@@ -119,7 +96,6 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 			spaceToDistribute := max(availHeight-totalGap, 0)
 
 			// 2. Track which children are still taking part in the distribution
-			//    and which are fixed to their MaxSize.
 			activeIndices := make([]int, 0, len(w.Children))
 			for i := range w.Children {
 				activeIndices = append(activeIndices, i)
@@ -130,45 +106,35 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 				share := spaceToDistribute / len(activeIndices)
 				remainder := spaceToDistribute % len(activeIndices)
 
-				// We need to see if this share violates any MaxSize constraints.
-				// We restart the distribution loop if we find ANY violation to ensure fairness.
 				cappedFound := false
-
-				// Identify indices that need to be capped
-				// We iterate backwards to easily remove from activeIndices slice if needed,
-				// or just build a new list for the next pass.
 				nextActive := activeIndices[:0] // reusing storage
 
 				for i, idx := range activeIndices {
-					_, maxH := w.Children[idx].MaxSize()
-
-					// Calculate what this child would get in this pass
 					proposedHeight := share
-					// (Optional) Distribute remainder to the first few items?
-					// Usually simpler to apply remainder only in the final stable pass.
-					// But strict checking might require looking at it now.
-					// Let's assume remainder goes to the first ones in the list.
 					if i < remainder {
 						proposedHeight++
 					}
 
-					if maxH > 0 && proposedHeight > maxH {
-						// Lock this child to maxH
-						childHeights[idx] = maxH
-						spaceToDistribute -= maxH
+					// Use available Width if stretched to allow aspect ratio constraints to work
+					crossWidth := 0
+					if w.SecondaryAlignment == Stretch {
+						crossWidth = availWidth
+					}
+
+					_, limitedHeight := w.Children[idx].LimitSize(crossWidth, proposedHeight)
+
+					if limitedHeight < proposedHeight {
+						childHeights[idx] = limitedHeight
+						spaceToDistribute -= limitedHeight
 						cappedFound = true
 					} else {
-						// Keep active
 						nextActive = append(nextActive, idx)
 					}
 				}
 
 				if cappedFound {
-					// A cap was hit, so the pool of space and active children changed.
-					// Recalculate distribution for the remaining children.
 					activeIndices = nextActive
 				} else {
-					// No caps hit, distribute remaining space to active children and finish.
 					for i, idx := range activeIndices {
 						h := share
 						if i < remainder {
@@ -180,21 +146,13 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 				}
 			}
 		} else {
-			// Standard positioning (Start, Center, End)
 			extraHeight := max(rect.Height-w.requiredHeight, 0)
 			y += align(w.PrimaryAlignment, extraHeight)
 		}
 
 		for i, child := range w.Children {
 			reqW, reqH := child.RequiredSize()
-			maxW, maxH := child.MaxSize()
-
-			if maxW > 0 && reqW > maxW {
-				reqW = maxW
-			}
-			if maxH > 0 && reqH > maxH {
-				reqH = maxH
-			}
+			reqW, reqH = child.LimitSize(reqW, reqH)
 
 			// Determine Child Width (Cross Axis)
 			childWidth := reqW
@@ -202,9 +160,6 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 
 			if w.SecondaryAlignment == Stretch {
 				childWidth = availWidth
-				if maxW > 0 && childWidth > maxW {
-					childWidth = maxW
-				}
 				childX = x
 			} else {
 				extraWidth := max(availWidth-reqW, 0)
@@ -215,31 +170,31 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 			childHeight := reqH
 
 			if w.PrimaryAlignment == Stretch {
-				// Use the calculated distributed height
 				childHeight = childHeights[i]
-				// Note: MaxSize is already baked into childHeights[i] by the solver above.
 			}
 
-			// Draw Child
+			// Apply constraints with both dimensions known
+			childWidth, childHeight = child.LimitSize(childWidth, childHeight)
+
 			if y < rect.Y+rect.Height {
-				rect := Rect{
+				r := Rect{
 					X:      childX,
 					Y:      y,
 					Width:  childWidth,
 					Height: childHeight,
 				}
 
-				child.Draw(screen, rect)
+				child.Draw(screen, r)
 
 				if onChildDraw != nil {
-					onChildDraw(child, rect)
+					onChildDraw(child, r)
 				}
 			}
 
 			y += childHeight + w.Gap
 		}
 	} else {
-		// Horizontal Case - Mirror of Vertical Logic
+		// Horizontal Case
 		childWidths := make([]int, len(w.Children))
 
 		if w.PrimaryAlignment == Stretch {
@@ -259,16 +214,22 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 				nextActive := activeIndices[:0]
 
 				for i, idx := range activeIndices {
-					maxW, _ := w.Children[idx].MaxSize()
-
 					proposedWidth := share
 					if i < remainder {
 						proposedWidth++
 					}
 
-					if maxW > 0 && proposedWidth > maxW {
-						childWidths[idx] = maxW
-						spaceToDistribute -= maxW
+					// Use available Height if stretched to allow aspect ratio constraints to work
+					crossHeight := 0
+					if w.SecondaryAlignment == Stretch {
+						crossHeight = availHeight
+					}
+
+					limitedWidth, _ := w.Children[idx].LimitSize(proposedWidth, crossHeight)
+
+					if limitedWidth < proposedWidth {
+						childWidths[idx] = limitedWidth
+						spaceToDistribute -= limitedWidth
 						cappedFound = true
 					} else {
 						nextActive = append(nextActive, idx)
@@ -295,14 +256,7 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 
 		for i, child := range w.Children {
 			reqW, reqH := child.RequiredSize()
-			maxW, maxH := child.MaxSize()
-
-			if maxW > 0 && reqW > maxW {
-				reqW = maxW
-			}
-			if maxH > 0 && reqH > maxH {
-				reqH = maxH
-			}
+			reqW, reqH = child.LimitSize(reqW, reqH)
 
 			// Determine Child Height (Cross Axis)
 			childHeight := reqH
@@ -310,9 +264,6 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 
 			if w.SecondaryAlignment == Stretch {
 				childHeight = availHeight
-				if maxH > 0 && childHeight > maxH {
-					childHeight = maxH
-				}
 				childY = y
 			} else {
 				extraHeight := max(availHeight-reqH, 0)
@@ -326,19 +277,21 @@ func (w *Container) draw(screen tcell.Screen, rect Rect, onChildDraw func(child 
 				childWidth = childWidths[i]
 			}
 
-			// Draw Child
+			// Apply constraints with both dimensions known
+			childWidth, childHeight = child.LimitSize(childWidth, childHeight)
+
 			if x < rect.X+rect.Width {
-				rect := Rect{
+				r := Rect{
 					X:      x,
 					Y:      childY,
 					Width:  childWidth,
 					Height: childHeight,
 				}
 
-				child.Draw(screen, rect)
+				child.Draw(screen, r)
 
 				if onChildDraw != nil {
-					onChildDraw(child, rect)
+					onChildDraw(child, r)
 				}
 			}
 

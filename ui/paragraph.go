@@ -9,6 +9,7 @@ import (
 
 type Paragraph struct {
 	baseWidget
+	simpleMaxSizeWidget
 
 	Spans     []Span
 	Alignment Alignment

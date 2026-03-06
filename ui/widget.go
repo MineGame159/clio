@@ -3,10 +3,10 @@ package ui
 import "github.com/gdamore/tcell/v3"
 
 type Widget interface {
-	MaxSize() (int, int)
-
 	CalcRequiredSize() (int, int)
 	RequiredSize() (int, int)
+
+	LimitSize(width, height int) (int, int)
 
 	HandleEvent(event any)
 
@@ -16,30 +16,41 @@ type Widget interface {
 // baseWidget
 
 type baseWidget struct {
-	maxWidth  int
-	maxHeight int
-
 	requiredWidth  int
 	requiredHeight int
-}
-
-func (w *baseWidget) MaxSize() (int, int) {
-	return w.maxWidth, w.maxHeight
 }
 
 func (w *baseWidget) RequiredSize() (int, int) {
 	return w.requiredWidth, w.requiredHeight
 }
 
-func (w *baseWidget) SetMaxSize(width, height int) {
+// simpleMaxSizeWidget
+
+type simpleMaxSizeWidget struct {
+	maxWidth  int
+	maxHeight int
+}
+
+func (w *simpleMaxSizeWidget) LimitSize(width, height int) (int, int) {
+	if w.maxWidth > 0 {
+		width = min(width, w.maxWidth)
+	}
+	if w.maxHeight > 0 {
+		height = min(height, w.maxHeight)
+	}
+
+	return width, height
+}
+
+func (w *simpleMaxSizeWidget) SetMaxSize(width, height int) {
 	w.maxWidth = width
 	w.maxHeight = height
 }
 
-func (w *baseWidget) SetMaxWidth(width int) {
+func (w *simpleMaxSizeWidget) SetMaxWidth(width int) {
 	w.maxWidth = width
 }
 
-func (w *baseWidget) SetMaxHeight(height int) {
+func (w *simpleMaxSizeWidget) SetMaxHeight(height int) {
 	w.maxHeight = height
 }
