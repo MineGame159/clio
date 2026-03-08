@@ -28,7 +28,11 @@ type Medias struct {
 	requestedMetaId string
 
 	input *ui.Input
-	list  *ui.List[stremio.SearchResult]
+
+	container  *ui.Container
+	horizontal bool
+
+	list *ui.List[stremio.SearchResult]
 
 	metaImage     *ui.Image
 	metaParagraph *ui.Paragraph
@@ -87,35 +91,23 @@ func (m *Medias) Widgets() []ui.Widget {
 		}()
 	}
 
+	m.container = &ui.Container{
+		Direction:          ui.Horizontal,
+		PrimaryAlignment:   ui.Stretch,
+		SecondaryAlignment: ui.Stretch,
+	}
+
 	// Meta
 	m.metaImage = &ui.Image{}
 	m.metaImage.SetMaxSize(1, 1)
 
 	m.metaParagraph = &ui.Paragraph{}
-	m.metaParagraph.SetMaxWidth(100)
 
 	// Root
 	return []ui.Widget{
 		ui.LeftMargin(m.input, 2),
 		&ui.HSeparator{Runes: ui.Rounded},
-		&ui.Container{
-			Direction:          ui.Horizontal,
-			PrimaryAlignment:   ui.Stretch,
-			SecondaryAlignment: ui.Stretch,
-			Children: []ui.Widget{
-				m.list,
-				&ui.VSeparator{Runes: ui.Rounded},
-				&ui.Container{
-					Direction:          ui.Vertical,
-					PrimaryAlignment:   ui.Stretch,
-					SecondaryAlignment: ui.Stretch,
-					Children: []ui.Widget{
-						m.metaImage,
-						m.metaParagraph,
-					},
-				},
-			},
-		},
+		m.container,
 	}
 }
 
@@ -181,7 +173,46 @@ func (m *Medias) HandleEvent(event any) {
 
 	case *tcell.EventResize:
 		width, _ := event.Size()
-		m.metaParagraph.SetMaxWidth(width / 3)
+
+		if width >= 135 {
+			m.container.Children = []ui.Widget{
+				m.list,
+				&ui.VSeparator{Runes: ui.Rounded},
+				m.metaImage,
+				&ui.VSeparator{Runes: ui.Rounded},
+				m.metaParagraph,
+			}
+
+			m.horizontal = true
+
+			if m.metaImage != nil {
+				m.metaImage.SetMaxSize(0, 0)
+			}
+
+			m.metaParagraph.SetMaxWidth(0)
+		} else {
+			m.container.Children = []ui.Widget{
+				m.list,
+				&ui.VSeparator{Runes: ui.Rounded},
+				&ui.Container{
+					Direction:          ui.Vertical,
+					PrimaryAlignment:   ui.Stretch,
+					SecondaryAlignment: ui.Stretch,
+					Children: []ui.Widget{
+						m.metaImage,
+						m.metaParagraph,
+					},
+				},
+			}
+
+			m.horizontal = false
+
+			if m.metaImage != nil {
+				m.metaImage.SetMaxSize(0, 25)
+			}
+
+			m.metaParagraph.SetMaxWidth(width / 3)
+		}
 
 	case []stremio.SearchResult:
 		m.list.SetItems(event)
@@ -217,7 +248,12 @@ func (m *Medias) HandleEvent(event any) {
 
 	case image.Image:
 		m.metaImage.SetSource(event)
-		m.metaImage.SetMaxSize(0, 25)
+
+		if m.horizontal {
+			m.metaImage.SetMaxSize(0, 0)
+		} else {
+			m.metaImage.SetMaxSize(0, 25)
+		}
 
 	case clearImage:
 		m.metaImage.SetSource(nil)
