@@ -18,7 +18,9 @@ type Stream struct {
 
 	Url         string
 	RedirectUrl bool
-	CheckUrl    string
+
+	CheckUrl     string
+	AlwaysCached bool
 
 	Resolution string
 	VideoCodec string
@@ -46,7 +48,9 @@ func ParseStream(stream stremio.Stream) Stream {
 	s.Name = parseStreamName(stream)
 	s.Url = stream.Url
 	s.RedirectUrl = stream.RedirectUrl
+
 	s.CheckUrl = stream.CheckUrl
+	s.AlwaysCached = stream.AlwaysCached
 
 	names := []string{stream.TitleDescription(), s.Name, stream.Hints.Filename}
 

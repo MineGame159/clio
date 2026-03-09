@@ -54,8 +54,13 @@ func (s *Streams) Keys() []Key {
 		keys = append(keys, Key{"Enter", "play"})
 		keys = append(keys, Key{"Tab", "search"})
 
-		if item, ok := s.list.Selected(); ok && item.CheckUrl != "" && item.Cache == Unknown {
-			keys = append(keys, Key{"C", "check status"})
+		if item, ok := s.list.Selected(); ok {
+			if item.CheckUrl != "" {
+				keys = append(keys, Key{"F", "files"})
+			}
+			if item.CheckUrl != "" && !item.AlwaysCached && item.Cache == Unknown {
+				keys = append(keys, Key{"C", "check status"})
+			}
 		}
 
 		if len(s.providers) > 1 {
@@ -143,8 +148,33 @@ func (s *Streams) HandleEvent(event any) {
 
 		case tcell.KeyRune:
 			switch event.Str() {
+			case "F", "f":
+				if item := s.list.SelectedPtr(); item != nil && item.CheckUrl != "" {
+					check, err := core.GetJson[stremio.StreamCheck](item.CheckUrl)
+					status := Unknown
+
+					if err == nil {
+						if check.Cached {
+							status = Cached
+						} else {
+							status = Uncached
+						}
+
+						s.Stack.Push(&Files{
+							Stack: s.Stack,
+							Ctx:   s.Ctx,
+							Name:  item.Name,
+							Files: check.Files,
+						})
+					}
+
+					if !item.AlwaysCached {
+						item.Cache = status
+					}
+				}
+
 			case "C", "c":
-				if item := s.list.SelectedPtr(); item != nil && item.CheckUrl != "" && item.Cache == Unknown {
+				if item := s.list.SelectedPtr(); item != nil && item.CheckUrl != "" && !item.AlwaysCached && item.Cache == Unknown {
 					item.Cache = Waiting
 
 					go func() {

@@ -15,13 +15,14 @@ type StreamProvider struct {
 }
 
 type Stream struct {
-	Name        string        `json:"name"`
-	Title       string        `json:"title,omitempty"`
-	Description string        `json:"description,omitempty"`
-	Url         string        `json:"url,omitempty"`
-	RedirectUrl bool          `json:"redirectUrl,omitempty"`
-	CheckUrl    string        `json:"checkUrl,omitempty"`
-	Hints       BehaviorHints `json:"behaviorHints,omitempty"`
+	Name         string        `json:"name"`
+	Title        string        `json:"title,omitempty"`
+	Description  string        `json:"description,omitempty"`
+	Url          string        `json:"url,omitempty"`
+	RedirectUrl  bool          `json:"redirectUrl,omitempty"`
+	CheckUrl     string        `json:"checkUrl,omitempty"`
+	AlwaysCached bool          `json:"alwaysCached,omitempty"`
+	Hints        BehaviorHints `json:"behaviorHints,omitempty"`
 }
 
 type BehaviorHints struct {
@@ -31,7 +32,13 @@ type BehaviorHints struct {
 }
 
 type StreamCheck struct {
-	Cached bool `json:"cached"`
+	Cached bool   `json:"cached"`
+	Files  []File `json:"files"`
+}
+
+type File struct {
+	Path string        `json:"path"`
+	Size core.ByteSize `json:"size"`
 }
 
 // StreamProvider

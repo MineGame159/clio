@@ -22,7 +22,7 @@ func Start(token string) (string, error) {
 
 	mux.HandleFunc("GET /manifest.json", a.handleManifest)
 	mux.HandleFunc("GET /stream/{kind}/{id}", a.handleStream)
-	mux.HandleFunc("GET /check/{magnet}/{season}/{episode}", a.handleCheck)
+	mux.HandleFunc("GET /check/{magnet}", a.handleCheck)
 	mux.HandleFunc("GET /play/{magnet}/{season}/{episode}", a.handlePlay)
 
 	// Listen

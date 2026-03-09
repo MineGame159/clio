@@ -44,6 +44,7 @@ func Start(token string) (string, error) {
 	mux.HandleFunc("GET /manifest.json", a.handleManifest)
 	mux.HandleFunc("GET /catalog/{kind}/{id}", a.handleCatalog)
 	mux.HandleFunc("GET /stream/{kind}/{id}", a.handleStream)
+	mux.HandleFunc("GET /check/{id}", a.handleCheck)
 	mux.HandleFunc("GET /play/{id}", a.handlePlay)
 
 	// Listen

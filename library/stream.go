@@ -14,6 +14,11 @@ import (
 	"sync"
 )
 
+type torrentFile struct {
+	id   string
+	file rd.File
+}
+
 func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	// Parse ID
 	id, _ := strings.CutSuffix(req.PathValue("id"), ".json")
@@ -31,7 +36,7 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 
 	// Fetch torrent files matching the id
 	wg := sync.WaitGroup{}
-	files := make(chan rd.File)
+	files := make(chan torrentFile)
 
 	if info, ok := a.media[id]; ok {
 		for _, id := range info.torrentIds {
@@ -39,7 +44,10 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 				if _, tFiles, err := a.rd.GetTorrent(req.Context(), id); err == nil {
 					for _, file := range tFiles {
 						if file.Link != "" {
-							files <- file
+							files <- torrentFile{
+								id:   id,
+								file: file,
+							}
 						}
 					}
 				}
@@ -56,7 +64,7 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	var streams []stremio.Stream
 
 	for file := range files {
-		filename := file.Path
+		filename := file.file.Path
 		if index := strings.LastIndexByte(filename, '/'); index != -1 {
 			filename = filename[index+1:]
 		}
@@ -68,7 +76,7 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 		}
 
 		if include {
-			streams = append(streams, a.getStream(file, filename))
+			streams = append(streams, a.getStream(file.id, file.file, filename))
 		}
 	}
 
@@ -82,18 +90,20 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	}{streams})
 }
 
-func (a *Addon) getStream(file rd.File, filename string) stremio.Stream {
+func (a *Addon) getStream(torrentId string, file rd.File, filename string) stremio.Stream {
 	id := file.Link
 	if index := strings.LastIndexByte(id, '/'); index != -1 {
 		id = id[index+1:]
 	}
 
 	return stremio.Stream{
-		Name:        "Library",
-		Title:       "",
-		Description: filename,
-		Url:         fmt.Sprintf("%s/play/%s", a.baseUrl, id),
-		RedirectUrl: true,
+		Name:         "Library",
+		Title:        "",
+		Description:  filename,
+		Url:          fmt.Sprintf("%s/play/%s", a.baseUrl, id),
+		CheckUrl:     fmt.Sprintf("%s/check/%s", a.baseUrl, torrentId),
+		AlwaysCached: true,
+		RedirectUrl:  true,
 		Hints: stremio.BehaviorHints{
 			BingeGroup: "",
 			Filename:   filename,

@@ -4,28 +4,14 @@ import (
 	"clio/core"
 	"clio/rd"
 	"clio/stremio"
+	"context"
 	"net/http"
-	"strconv"
 	"time"
 )
 
 func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	// Read magnet link
 	magnet, _, err := readMagnet(req)
-	if err != nil {
-		core.WriteError(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Read season
-	season, err := strconv.Atoi(req.PathValue("season"))
-	if err != nil {
-		core.WriteError(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Episode
-	episode, err := strconv.Atoi(req.PathValue("episode"))
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -38,10 +24,32 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Select files
-	if err := a.selectFilesFromTorrent(req.Context(), id, season == -1 && episode == -1); err != nil {
-		_ = a.rd.DeleteTorrent(req.Context(), id)
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 
+		_ = a.rd.DeleteTorrent(ctx, id)
+	}()
+
+	// Select files
+	_, tFiles, err := a.rd.GetTorrent(req.Context(), id)
+	if err != nil {
+		core.WriteError(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fileIds := make([]uint, len(tFiles))
+	files := make([]stremio.File, len(tFiles))
+
+	for i, file := range tFiles {
+		fileIds[i] = file.Id
+		files[i] = stremio.File{
+			Path: file.Path,
+			Size: file.Size,
+		}
+	}
+
+	if err := a.rd.SelectFiles(req.Context(), id, fileIds); err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -54,8 +62,6 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 
 		torrent, _, err := a.rd.GetTorrent(req.Context(), id)
 		if err != nil {
-			_ = a.rd.DeleteTorrent(req.Context(), id)
-
 			core.WriteError(res, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -70,14 +76,9 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// Delete torrent
-	if err := a.rd.DeleteTorrent(req.Context(), id); err != nil {
-		core.WriteError(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	// Response
 	core.WriteJson(res, stremio.StreamCheck{
 		Cached: cached,
+		Files:  files,
 	})
 }

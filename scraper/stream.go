@@ -106,7 +106,7 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 			Description: fmt.Sprintf("%s\n👥 %d", torrent.Name, torrent.Seeders),
 			Url:         fmt.Sprintf("%s/play/%s/%d/%d", a.baseUrl, magnet, season, episode),
 			RedirectUrl: true,
-			CheckUrl:    fmt.Sprintf("%s/check/%s/%d/%d", a.baseUrl, magnet, season, episode),
+			CheckUrl:    fmt.Sprintf("%s/check/%s", a.baseUrl, magnet),
 			Hints: stremio.BehaviorHints{
 				BingeGroup: "",
 				Filename:   torrent.Name,
