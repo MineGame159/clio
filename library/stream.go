@@ -101,9 +101,10 @@ func (a *Addon) getStream(torrentId string, file rd.File, filename string) strem
 		Title:        "",
 		Description:  filename,
 		Url:          fmt.Sprintf("%s/play/%s", a.baseUrl, id),
+		RedirectUrl:  true,
 		CheckUrl:     fmt.Sprintf("%s/check/%s", a.baseUrl, torrentId),
 		AlwaysCached: true,
-		RedirectUrl:  true,
+		DeleteUrl:    fmt.Sprintf("%s/delete/%s", a.baseUrl, torrentId),
 		Hints: stremio.BehaviorHints{
 			BingeGroup: "",
 			Filename:   filename,

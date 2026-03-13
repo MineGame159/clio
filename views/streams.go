@@ -54,12 +54,15 @@ func (s *Streams) Keys() []Key {
 		keys = append(keys, Key{"Enter", "play"})
 		keys = append(keys, Key{"Tab", "search"})
 
-		if item, ok := s.list.Selected(); ok {
+		if item, ok := s.list.Selected(); ok && item.Name != "" {
 			if item.CheckUrl != "" {
 				keys = append(keys, Key{"F", "files"})
 			}
 			if item.CheckUrl != "" && !item.AlwaysCached && item.Cache == Unknown {
 				keys = append(keys, Key{"C", "check status"})
+			}
+			if item.DeleteUrl != "" {
+				keys = append(keys, Key{"D", "delete"})
 			}
 		}
 
@@ -75,10 +78,11 @@ func (s *Streams) Keys() []Key {
 func (s *Streams) Widgets() []ui.Widget {
 	// List
 	s.list = &ui.List[Stream]{
-		ItemDisplayFn: StreamWidget,
-		ItemHeight:    2,
-		SelectedStr:   "│ ",
-		SelectedStyle: ui.Fg(color.Lime),
+		ItemDisplayFn:    StreamWidget,
+		ItemSelectableFn: StreamSelectable,
+		ItemHeight:       2,
+		SelectedStr:      "│ ",
+		SelectedStyle:    ui.Fg(color.Lime),
 	}
 
 	s.list.Focus()
@@ -118,7 +122,7 @@ func (s *Streams) HandleEvent(event any) {
 			if s.input.Focused() {
 				s.input.Blur()
 				s.list.Focus()
-			} else if item, ok := s.list.Selected(); ok {
+			} else if item, ok := s.list.Selected(); ok && item.Url != "" {
 				url := item.Url
 
 				if item.RedirectUrl {
@@ -149,7 +153,7 @@ func (s *Streams) HandleEvent(event any) {
 		case tcell.KeyRune:
 			switch event.Str() {
 			case "F", "f":
-				if item := s.list.SelectedPtr(); item != nil && item.CheckUrl != "" {
+				if item := s.list.SelectedPtr(); item != nil && item.Url != "" && item.CheckUrl != "" {
 					check, err := core.GetJson[stremio.StreamCheck](item.CheckUrl)
 					status := Unknown
 
@@ -174,7 +178,7 @@ func (s *Streams) HandleEvent(event any) {
 				}
 
 			case "C", "c":
-				if item := s.list.SelectedPtr(); item != nil && item.CheckUrl != "" && !item.AlwaysCached && item.Cache == Unknown {
+				if item := s.list.SelectedPtr(); item != nil && item.Url != "" && item.CheckUrl != "" && !item.AlwaysCached && item.Cache == Unknown {
 					item.Cache = Waiting
 
 					go func() {
@@ -194,6 +198,14 @@ func (s *Streams) HandleEvent(event any) {
 							cache:    status,
 						})
 					}()
+				}
+
+			case "D", "d":
+				if item := s.list.SelectedPtr(); item != nil && item.Url != "" && item.DeleteUrl != "" {
+					_, err := core.DoReqJsonCtx[any](context.Background(), "DELETE", item.DeleteUrl, "", nil)
+					if err == nil {
+						item.Url = ""
+					}
 				}
 
 			case "B", "b":

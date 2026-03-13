@@ -22,6 +22,7 @@ type Stream struct {
 	RedirectUrl  bool          `json:"redirectUrl,omitempty"`
 	CheckUrl     string        `json:"checkUrl,omitempty"`
 	AlwaysCached bool          `json:"alwaysCached,omitempty"`
+	DeleteUrl    string        `json:"deleteUrl,omitempty"`
 	Hints        BehaviorHints `json:"behaviorHints,omitempty"`
 }
 

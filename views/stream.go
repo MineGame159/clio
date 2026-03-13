@@ -22,6 +22,8 @@ type Stream struct {
 	CheckUrl     string
 	AlwaysCached bool
 
+	DeleteUrl string
+
 	Resolution string
 	VideoCodec string
 	AudioCodec string
@@ -51,6 +53,8 @@ func ParseStream(stream stremio.Stream) Stream {
 
 	s.CheckUrl = stream.CheckUrl
 	s.AlwaysCached = stream.AlwaysCached
+
+	s.DeleteUrl = stream.DeleteUrl
 
 	names := []string{stream.TitleDescription(), s.Name, stream.Hints.Filename}
 
@@ -193,6 +197,9 @@ func StreamWidget(stream Stream, selected bool) ui.Widget {
 	if selected {
 		style = ui.Fg(color.Lime)
 	}
+	if stream.Url == "" {
+		style = ui.Fg(color.Gray)
+	}
 
 	spans := []ui.Span{{stream.Name + "\n", style}}
 
@@ -204,17 +211,23 @@ func StreamWidget(stream Stream, selected bool) ui.Widget {
 	}
 	addStreamMeta(&spans, stream.Size.String(), color.Gray)
 
-	switch stream.Cache {
-	case Unknown:
-	case Waiting:
-		addStreamMeta(&spans, "...", color.Gray)
-	case Uncached:
-		addStreamMeta(&spans, "Uncached", color.Black)
-	case Cached:
-		addStreamMeta(&spans, "Cached", color.Olive)
+	if stream.Url != "" {
+		switch stream.Cache {
+		case Unknown:
+		case Waiting:
+			addStreamMeta(&spans, "...", color.Gray)
+		case Uncached:
+			addStreamMeta(&spans, "Uncached", color.Black)
+		case Cached:
+			addStreamMeta(&spans, "Cached", color.Olive)
+		}
 	}
 
 	return &ui.Paragraph{Spans: spans}
+}
+
+func StreamSelectable(stream Stream) bool {
+	return stream.Url != ""
 }
 
 func addStreamMeta(spans *[]ui.Span, value string, fg color.Color) {

@@ -46,6 +46,7 @@ func Start(token string) (string, error) {
 	mux.HandleFunc("GET /stream/{kind}/{id}", a.handleStream)
 	mux.HandleFunc("GET /check/{id}", a.handleCheck)
 	mux.HandleFunc("GET /play/{id}", a.handlePlay)
+	mux.HandleFunc("DELETE /delete/{id}", a.handleDelete)
 
 	// Listen
 	var err error

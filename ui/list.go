@@ -46,6 +46,15 @@ func SimpleItemDisplayFn[T any](itemTextFn func(item T) string, selectedStyle tc
 	}
 }
 
+func (w *List[T]) invalidate(filteredIndex int) {
+	filtered := &w.filtered[filteredIndex]
+	filtered.widget = nil
+
+	if w.ItemSelectableFn != nil {
+		filtered.selectable = w.ItemSelectableFn(w.items[filtered.index])
+	}
+}
+
 func (w *List[T]) setSelected(index, direction int) {
 	if len(w.filtered) == 0 {
 		return
@@ -65,11 +74,11 @@ func (w *List[T]) setSelected(index, direction int) {
 
 	if w.filtered[index].selectable {
 		if w.selected >= 0 && w.selected < len(w.filtered) {
-			w.filtered[w.selected].widget = nil
+			w.invalidate(w.selected)
 		}
 
 		w.selected = index
-		w.filtered[index].widget = nil
+		w.invalidate(index)
 	}
 }
 
@@ -102,7 +111,7 @@ func (w *List[T]) Modify(predicate func(item T) bool) *T {
 		if predicate(w.items[i]) {
 			for j := range w.filtered {
 				if w.filtered[j].index == i {
-					w.filtered[j].widget = nil
+					w.invalidate(j)
 					break
 				}
 			}
@@ -157,17 +166,16 @@ func (w *List[T]) SelectedPtr() *T {
 		return nil
 	}
 
-	filtered := &w.filtered[w.selected]
-	filtered.widget = nil
+	w.invalidate(w.selected)
 
-	return &w.items[filtered.index]
+	return &w.items[w.filtered[w.selected].index]
 }
 
 func (w *List[T]) Focus() {
 	w.focused = true
 
 	if len(w.filtered) > 0 {
-		w.filtered[w.selected].widget = nil
+		w.invalidate(w.selected)
 	}
 }
 
@@ -175,7 +183,7 @@ func (w *List[T]) Blur() {
 	w.focused = false
 
 	if len(w.filtered) > 0 {
-		w.filtered[w.selected].widget = nil
+		w.invalidate(w.selected)
 	}
 }
 
