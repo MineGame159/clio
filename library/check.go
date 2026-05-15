@@ -8,7 +8,7 @@ import (
 
 func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	// Get torrent files
-	_, tFiles, err := a.rd.GetTorrent(req.Context(), req.PathValue("id"))
+	_, tFiles, err := a.client.GetTorrent(req.Context(), req.PathValue("id"))
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -18,7 +18,7 @@ func (a *Addon) handleCheck(res http.ResponseWriter, req *http.Request) {
 	files := make([]stremio.File, 0, len(tFiles))
 
 	for _, file := range tFiles {
-		if file.Selected != 0 {
+		if file.Selected {
 			files = append(files, stremio.File{
 				Path: file.Path,
 				Size: file.Size,

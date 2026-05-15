@@ -2,7 +2,7 @@ package library
 
 import (
 	"clio/core"
-	"clio/rd"
+	"clio/debrid"
 	"clio/stremio"
 	"cmp"
 	"errors"
@@ -16,7 +16,7 @@ import (
 
 type torrentFile struct {
 	id   string
-	file rd.File
+	file debrid.File
 }
 
 func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
@@ -41,9 +41,9 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	if info, ok := a.media[id]; ok {
 		for _, id := range info.torrentIds {
 			wg.Go(func() {
-				if _, tFiles, err := a.rd.GetTorrent(req.Context(), id); err == nil {
+				if _, tFiles, err := a.client.GetTorrent(req.Context(), id); err == nil {
 					for _, file := range tFiles {
-						if file.Link != "" {
+						if file.Selected {
 							files <- torrentFile{
 								id:   id,
 								file: file,
@@ -90,17 +90,12 @@ func (a *Addon) handleStream(res http.ResponseWriter, req *http.Request) {
 	}{streams})
 }
 
-func (a *Addon) getStream(torrentId string, file rd.File, filename string) stremio.Stream {
-	id := file.Link
-	if index := strings.LastIndexByte(id, '/'); index != -1 {
-		id = id[index+1:]
-	}
-
+func (a *Addon) getStream(torrentId string, file debrid.File, filename string) stremio.Stream {
 	return stremio.Stream{
 		Name:         "Library",
 		Title:        "",
 		Description:  filename,
-		Url:          fmt.Sprintf("%s/play/%s", a.baseUrl, id),
+		Url:          fmt.Sprintf("%s/play/%s/%d", a.baseUrl, torrentId, file.Id),
 		RedirectUrl:  true,
 		CheckUrl:     fmt.Sprintf("%s/check/%s", a.baseUrl, torrentId),
 		AlwaysCached: true,

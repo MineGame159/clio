@@ -2,7 +2,7 @@ package library
 
 import (
 	"clio/core"
-	"clio/rd"
+	"clio/debrid"
 	"clio/stremio"
 	"context"
 	"errors"
@@ -11,7 +11,7 @@ import (
 )
 
 type Addon struct {
-	rd      *rd.Client
+	client  debrid.Client
 	baseUrl string
 
 	media map[string]mediaInfo
@@ -27,11 +27,11 @@ type mediaInfo struct {
 	torrentIds []string
 }
 
-func Start(token string) (string, error) {
+func Start(client debrid.Client) (string, error) {
 	// Initialize addon
 	a := &Addon{
-		rd:    rd.NewClient(token),
-		media: make(map[string]mediaInfo),
+		client: client,
+		media:  make(map[string]mediaInfo),
 	}
 
 	if err := a.fetchMedia(); err != nil {
@@ -45,7 +45,7 @@ func Start(token string) (string, error) {
 	mux.HandleFunc("GET /catalog/{kind}/{id}", a.handleCatalog)
 	mux.HandleFunc("GET /stream/{kind}/{id}", a.handleStream)
 	mux.HandleFunc("GET /check/{id}", a.handleCheck)
-	mux.HandleFunc("GET /play/{id}", a.handlePlay)
+	mux.HandleFunc("GET /play/{id}/{file_id}", a.handlePlay)
 	mux.HandleFunc("DELETE /delete/{id}", a.handleDelete)
 
 	// Listen
@@ -59,23 +59,23 @@ func Start(token string) (string, error) {
 }
 
 func (a *Addon) fetchMedia() error {
-	torrents, err := a.rd.GetAllTorrents(context.Background())
+	torrents, err := debrid.GetAllTorrents(context.Background(), a.client)
 	if err != nil {
 		return err
 	}
 
 	// Group torrents by the cleaned up name
-	mediaNameTorrents := make(map[string][]rd.Torrent)
+	mediaNameTorrents := make(map[string][]debrid.Torrent)
 
 	for _, torrent := range torrents {
 		info := core.ParseTorrentName(torrent.Filename)
 
-		var torrents []rd.Torrent
+		var torrents []debrid.Torrent
 
 		if existing, ok := mediaNameTorrents[info.Name]; ok {
 			torrents = append(existing, torrent)
 		} else {
-			torrents = []rd.Torrent{torrent}
+			torrents = []debrid.Torrent{torrent}
 		}
 
 		mediaNameTorrents[info.Name] = torrents

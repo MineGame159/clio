@@ -1,4 +1,4 @@
-package rd
+package debrid
 
 import (
 	"context"
@@ -9,19 +9,33 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+
+	"golang.org/x/sync/semaphore"
 )
 
-func get[T any](c *Client, ctx context.Context, url string) (T, error) {
+type HttpClient struct {
+	token string
+	sem   *semaphore.Weighted
+}
+
+func NewHttpClient(token string, concurrencyLimit int64) HttpClient {
+	return HttpClient{
+		token: token,
+		sem:   semaphore.NewWeighted(concurrencyLimit),
+	}
+}
+
+func Get[T any](c HttpClient, ctx context.Context, url string) (T, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		var empty T
 		return empty, err
 	}
 
-	return doRequest[T](c, ctx, req)
+	return Do[T](c, ctx, req)
 }
 
-func post[T any](c *Client, ctx context.Context, url string, values url.Values) (T, error) {
+func Post[T any](c HttpClient, ctx context.Context, url string, values url.Values) (T, error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(values.Encode()))
 	if err != nil {
 		var empty T
@@ -30,14 +44,14 @@ func post[T any](c *Client, ctx context.Context, url string, values url.Values) 
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	return doRequest[T](c, ctx, req)
+	return Do[T](c, ctx, req)
 }
 
-func doRequest[T any](c *Client, ctx context.Context, req *http.Request) (T, error) {
+func Do[T any](c HttpClient, ctx context.Context, req *http.Request) (T, error) {
 	_ = c.sem.Acquire(ctx, 1)
 	defer c.sem.Release(1)
 
-	req.Header.Set("User-Agent", "clio")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.token)
 

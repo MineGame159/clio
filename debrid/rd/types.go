@@ -1,8 +1,6 @@
 package rd
 
-import (
-	"clio/core"
-)
+import "clio/core"
 
 type TorrentStatus string
 

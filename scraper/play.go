@@ -2,7 +2,7 @@ package scraper
 
 import (
 	"clio/core"
-	"clio/rd"
+	"clio/debrid"
 	"context"
 	"encoding/base64"
 	"io"
@@ -36,7 +36,7 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Find existing torrent with the same hash
-	torrents, err := a.rd.GetAllTorrents(req.Context())
+	torrents, err := debrid.GetAllTorrents(req.Context(), a.client)
 	if err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
@@ -60,14 +60,8 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 
 	// Add magnet to library
-	id, err := a.rd.AddMagnet(req.Context(), magnet)
+	id, err := a.client.AddMagnet(req.Context(), magnet)
 	if err != nil {
-		core.WriteError(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Select files
-	if err := a.selectFilesFromTorrent(req.Context(), id, season == -1 && episode == -1); err != nil {
 		core.WriteError(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -86,54 +80,15 @@ func (a *Addon) handlePlay(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (a *Addon) selectFilesFromTorrent(ctx context.Context, id string, movie bool) error {
-	_, files, err := a.rd.GetTorrent(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	var fileIds []uint
-	var biggestFile rd.File
-
-	for _, file := range files {
-		if !core.IsVideoFile(file.Path) {
-			continue
-		}
-
-		if movie {
-			if file.Size > biggestFile.Size {
-				biggestFile = file
-			}
-		} else {
-			name := file.Path
-			if index := strings.LastIndexByte(name, '/'); index != -1 {
-				name = name[index+1:]
-			}
-
-			info := core.ParseTorrentName(name)
-
-			if info.Season != -1 && info.Episode != -1 {
-				fileIds = append(fileIds, file.Id)
-			}
-		}
-	}
-
-	if movie && biggestFile.Path != "" {
-		fileIds = append(fileIds, biggestFile.Id)
-	}
-
-	return a.rd.SelectFiles(ctx, id, fileIds)
-}
-
 func (a *Addon) getDownloadFromTorrent(ctx context.Context, id string, season, episode int) (string, error) {
-	_, files, err := a.rd.GetTorrent(ctx, id)
+	_, files, err := a.client.GetTorrent(ctx, id)
 	if err != nil {
 		return "", err
 	}
 
 	for _, file := range files {
 		if fileMatches(file, season, episode) {
-			download, err := a.rd.GetDownloadLink(ctx, file.Link)
+			download, err := a.client.GetDownload(ctx, id, file.Id)
 			if err != nil {
 				return "", err
 			}
@@ -145,8 +100,8 @@ func (a *Addon) getDownloadFromTorrent(ctx context.Context, id string, season, e
 	return "", nil
 }
 
-func fileMatches(file rd.File, season, episode int) bool {
-	if file.Selected == 0 {
+func fileMatches(file debrid.File, season, episode int) bool {
+	if !file.Selected {
 		return false
 	}
 
