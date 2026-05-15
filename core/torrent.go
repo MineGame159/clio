@@ -1,7 +1,9 @@
 package core
 
 import (
+	"errors"
 	"math"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -72,6 +74,25 @@ func ParseTorrentName(name string) NameInfo {
 		Season:  season,
 		Episode: episode,
 	}
+}
+
+func ParseMagnet(magnet string) (string, error) {
+	magnetQuery, ok := strings.CutPrefix(magnet, "magnet:?")
+	if !ok {
+		return "", errors.New("invalid magnet link")
+	}
+
+	values, err := url.ParseQuery(magnetQuery)
+	if err != nil {
+		return "", err
+	}
+
+	hash, ok := strings.CutPrefix(values.Get("xt"), "urn:btih:")
+	if !ok {
+		return "", errors.New("invalid magnet hash")
+	}
+
+	return hash, nil
 }
 
 func minIndex(locs ...[]int) int {

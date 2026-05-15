@@ -5,24 +5,26 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"golang.org/x/sync/semaphore"
 )
 
-const base = "https://api.real-debrid.com/rest/1.0"
-
 type Client struct {
-	http debrid.HttpClient
+	token string
+	sem   *semaphore.Weighted
 }
 
 func NewClient(token string) *Client {
 	return &Client{
-		http: debrid.NewHttpClient(token, 2),
+		token: token,
+		sem:   semaphore.NewWeighted(2),
 	}
 }
 
 // debrid.Client
 
 func (c *Client) GetTorrent(ctx context.Context, id string) (debrid.Torrent, []debrid.File, error) {
-	torrent, files, err := getTorrent(ctx, c.http, id)
+	torrent, files, err := getTorrent(ctx, c, id)
 	if err != nil {
 		return debrid.Torrent{}, nil, err
 	}
@@ -38,7 +40,7 @@ func (c *Client) GetTorrent(ctx context.Context, id string) (debrid.Torrent, []d
 }
 
 func (c *Client) GetTorrents(ctx context.Context, page uint) ([]debrid.Torrent, error) {
-	torrents, err := getTorrents(ctx, c.http, page)
+	torrents, err := getTorrents(ctx, c, page)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +56,7 @@ func (c *Client) GetTorrents(ctx context.Context, page uint) ([]debrid.Torrent, 
 
 func (c *Client) CheckMagnet(ctx context.Context, magnet string) (bool, []debrid.File, error) {
 	// Add magnet to library
-	id, err := addMagnet(ctx, c.http, magnet)
+	id, err := addMagnet(ctx, c, magnet)
 	if err != nil {
 		return false, nil, err
 	}
@@ -63,7 +65,7 @@ func (c *Client) CheckMagnet(ctx context.Context, magnet string) (bool, []debrid
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		_ = deleteTorrent(ctx, c.http, id)
+		_ = deleteTorrent(ctx, c, id)
 	}()
 
 	// Check status
@@ -75,7 +77,7 @@ func (c *Client) CheckMagnet(ctx context.Context, magnet string) (bool, []debrid
 	for i := 0; i < 10; i++ {
 		time.Sleep(time.Millisecond * 250)
 
-		torrent, files, err = getTorrent(ctx, c.http, id)
+		torrent, files, err = getTorrent(ctx, c, id)
 		if err != nil {
 			return false, nil, err
 		}
@@ -101,13 +103,13 @@ func (c *Client) CheckMagnet(ctx context.Context, magnet string) (bool, []debrid
 }
 
 func (c *Client) AddMagnet(ctx context.Context, magnet string) (string, error) {
-	id, err := addMagnet(ctx, c.http, magnet)
+	id, err := addMagnet(ctx, c, magnet)
 	if err != nil {
 		return "", err
 	}
 
-	if err = selectAllFiles(ctx, c.http, id); err != nil {
-		_ = deleteTorrent(ctx, c.http, id)
+	if err = selectAllFiles(ctx, c, id); err != nil {
+		_ = deleteTorrent(ctx, c, id)
 		return "", err
 	}
 
@@ -115,12 +117,12 @@ func (c *Client) AddMagnet(ctx context.Context, magnet string) (string, error) {
 }
 
 func (c *Client) DeleteTorrent(ctx context.Context, id string) error {
-	return deleteTorrent(ctx, c.http, id)
+	return deleteTorrent(ctx, c, id)
 }
 
 func (c *Client) GetDownload(ctx context.Context, id string, fileId uint) (string, error) {
 	// Get torrent file link
-	_, files, err := getTorrent(ctx, c.http, id)
+	_, files, err := getTorrent(ctx, c, id)
 	if err != nil {
 		return "", err
 	}
@@ -139,7 +141,7 @@ func (c *Client) GetDownload(ctx context.Context, id string, fileId uint) (strin
 	}
 
 	// Try to find an existing download link
-	downloads, err := getAllDownloads(ctx, c.http)
+	downloads, err := getAllDownloads(ctx, c)
 	if err != nil {
 		return "", err
 	}
@@ -151,7 +153,7 @@ func (c *Client) GetDownload(ctx context.Context, id string, fileId uint) (strin
 	}
 
 	// Generate a download link
-	download, err := unrestrict(ctx, c.http, link)
+	download, err := unrestrict(ctx, c, link)
 	if err != nil {
 		return "", err
 	}
@@ -163,9 +165,9 @@ func (c *Client) GetDownload(ctx context.Context, id string, fileId uint) (strin
 
 func getDebridTorrent(torrent Torrent) debrid.Torrent {
 	return debrid.Torrent{
-		Id:       torrent.Id,
-		Filename: torrent.Filename,
-		Hash:     torrent.Hash,
+		Id:   torrent.Id,
+		Name: torrent.Filename,
+		Hash: torrent.Hash,
 	}
 }
 

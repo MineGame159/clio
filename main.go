@@ -3,6 +3,7 @@ package main
 import (
 	"clio/debrid"
 	"clio/debrid/rd"
+	"clio/debrid/tb"
 	"clio/library"
 	"clio/scraper"
 	"clio/stremio"
@@ -85,6 +86,13 @@ func getClient(clients map[string]debrid.Client, str string) debrid.Client {
 
 	if strings.HasPrefix(str, "RD:") {
 		client := rd.NewClient(str[3:])
+		clients[str] = client
+
+		return client
+	}
+
+	if strings.HasPrefix(str, "TB:") {
+		client := tb.NewClient(str[3:])
 		clients[str] = client
 
 		return client

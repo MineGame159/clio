@@ -68,7 +68,7 @@ func (a *Addon) fetchMedia() error {
 	mediaNameTorrents := make(map[string][]debrid.Torrent)
 
 	for _, torrent := range torrents {
-		info := core.ParseTorrentName(torrent.Filename)
+		info := core.ParseTorrentName(torrent.Name)
 
 		var torrents []debrid.Torrent
 
@@ -92,7 +92,7 @@ func (a *Addon) fetchMedia() error {
 
 	for _, torrents := range mediaNameTorrents {
 		wg.Go(func() {
-			info := core.ParseTorrentName(torrents[0].Filename)
+			info := core.ParseTorrentName(torrents[0].Name)
 
 			kind := stremio.Movie
 			if info.Season != -1 || info.Episode != -1 {

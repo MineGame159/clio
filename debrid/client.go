@@ -6,9 +6,9 @@ import (
 )
 
 type Torrent struct {
-	Id       string
-	Filename string
-	Hash     string
+	Id   string
+	Name string
+	Hash string
 }
 
 type File struct {

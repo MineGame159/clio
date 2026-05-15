@@ -1,4 +1,4 @@
-package debrid
+package rd
 
 import (
 	"context"
@@ -9,33 +9,19 @@ import (
 	"strings"
 	"time"
 	"unsafe"
-
-	"golang.org/x/sync/semaphore"
 )
 
-type HttpClient struct {
-	token string
-	sem   *semaphore.Weighted
-}
-
-func NewHttpClient(token string, concurrencyLimit int64) HttpClient {
-	return HttpClient{
-		token: token,
-		sem:   semaphore.NewWeighted(concurrencyLimit),
-	}
-}
-
-func Get[T any](c HttpClient, ctx context.Context, url string) (T, error) {
+func get[T any](c *Client, ctx context.Context, url string) (T, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		var empty T
 		return empty, err
 	}
 
-	return Do[T](c, ctx, req)
+	return doRequest[T](c, ctx, req)
 }
 
-func Post[T any](c HttpClient, ctx context.Context, url string, values url.Values) (T, error) {
+func post[T any](c *Client, ctx context.Context, url string, values url.Values) (T, error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(values.Encode()))
 	if err != nil {
 		var empty T
@@ -44,10 +30,10 @@ func Post[T any](c HttpClient, ctx context.Context, url string, values url.Value
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	return Do[T](c, ctx, req)
+	return doRequest[T](c, ctx, req)
 }
 
-func Do[T any](c HttpClient, ctx context.Context, req *http.Request) (T, error) {
+func doRequest[T any](c *Client, ctx context.Context, req *http.Request) (T, error) {
 	_ = c.sem.Acquire(ctx, 1)
 	defer c.sem.Release(1)
 

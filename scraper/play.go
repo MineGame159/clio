@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -126,13 +125,7 @@ func readMagnet(req *http.Request) (string, string, error) {
 	}
 
 	magnet := string(magnetBytes)
-	magnetQuery, _ := strings.CutPrefix(magnet, "magnet:?")
+	hash, err := core.ParseMagnet(magnet)
 
-	values, err := url.ParseQuery(magnetQuery)
-	if err != nil {
-		return "", "", err
-	}
-
-	hash, _ := strings.CutPrefix(values.Get("xt"), "urn:btih:")
-	return magnet, hash, nil
+	return magnet, hash, err
 }

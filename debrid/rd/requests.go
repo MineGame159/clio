@@ -1,17 +1,18 @@
 package rd
 
 import (
-	"clio/debrid"
 	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 )
 
-func getTorrent(ctx context.Context, c debrid.HttpClient, id string) (Torrent, []File, error) {
+const base = "https://api.real-debrid.com/rest/1.0"
+
+func getTorrent(ctx context.Context, c *Client, id string) (Torrent, []File, error) {
 	url_ := fmt.Sprintf("%s/torrents/info/%s", base, id)
 
-	body, err := debrid.Get[struct {
+	body, err := get[struct {
 		Torrent
 		Files []File
 		Links []string
@@ -34,16 +35,16 @@ func getTorrent(ctx context.Context, c debrid.HttpClient, id string) (Torrent, [
 	return body.Torrent, body.Files, nil
 }
 
-func getTorrents(ctx context.Context, c debrid.HttpClient, page uint) ([]Torrent, error) {
+func getTorrents(ctx context.Context, c *Client, page uint) ([]Torrent, error) {
 	url_ := fmt.Sprintf("%s/torrents?limit=500&page=%d", base, page)
-	return debrid.Get[[]Torrent](c, ctx, url_)
+	return get[[]Torrent](c, ctx, url_)
 }
 
-func addMagnet(ctx context.Context, c debrid.HttpClient, magnet string) (string, error) {
+func addMagnet(ctx context.Context, c *Client, magnet string) (string, error) {
 	url_ := fmt.Sprintf("%s/torrents/addMagnet", base)
 	values := url.Values{"magnet": {magnet}}
 
-	body, err := debrid.Post[struct {
+	body, err := post[struct {
 		Id string
 	}](c, ctx, url_, values)
 
@@ -54,16 +55,16 @@ func addMagnet(ctx context.Context, c debrid.HttpClient, magnet string) (string,
 	return body.Id, nil
 }
 
-func selectAllFiles(ctx context.Context, c debrid.HttpClient, id string) error {
+func selectAllFiles(ctx context.Context, c *Client, id string) error {
 	url_ := fmt.Sprintf("%s/torrents/selectFiles/%s", base, id)
 
 	values := url.Values{"files": {"all"}}
-	_, err := debrid.Post[struct{}](c, ctx, url_, values)
+	_, err := post[struct{}](c, ctx, url_, values)
 
 	return err
 }
 
-func deleteTorrent(ctx context.Context, c debrid.HttpClient, id string) error {
+func deleteTorrent(ctx context.Context, c *Client, id string) error {
 	url_ := fmt.Sprintf("%s/torrents/delete/%s", base, id)
 
 	req, err := http.NewRequest("DELETE", url_, nil)
@@ -71,24 +72,24 @@ func deleteTorrent(ctx context.Context, c debrid.HttpClient, id string) error {
 		return err
 	}
 
-	_, err = debrid.Do[struct{}](c, ctx, req)
+	_, err = doRequest[struct{}](c, ctx, req)
 	return err
 }
 
-func getDownloads(ctx context.Context, c debrid.HttpClient, page uint) ([]Download, error) {
+func getDownloads(ctx context.Context, c *Client, page uint) ([]Download, error) {
 	url_ := fmt.Sprintf("%s/downloads?limit=500&page=%d", base, page)
-	return debrid.Get[[]Download](c, ctx, url_)
+	return get[[]Download](c, ctx, url_)
 }
 
-func unrestrict(ctx context.Context, c debrid.HttpClient, link string) (Download, error) {
+func unrestrict(ctx context.Context, c *Client, link string) (Download, error) {
 	url_ := fmt.Sprintf("%s/unrestrict/link", base)
 	values := url.Values{"link": {link}}
-	return debrid.Post[Download](c, ctx, url_, values)
+	return post[Download](c, ctx, url_, values)
 }
 
 // Utils
 
-func getAllDownloads(ctx context.Context, c debrid.HttpClient) ([]Download, error) {
+func getAllDownloads(ctx context.Context, c *Client) ([]Download, error) {
 	var downloads []Download
 
 	page := uint(1)

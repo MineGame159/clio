@@ -13,13 +13,13 @@ To use Clio you need to create a config file in this location:
 - MacOS: `~/Library/Application Support/clio.json`
 
 ### Example
-Replace `real-debrid-token` with your private API token for your Real Debrid account if you want to use the built-in addons:
+Replace `real-debrid-token` with your private API token for your Real Debrid account (use `TB` instead of `RD` for TorBox) if you want to use the built-in addons:
 ```json
 {
     "addons": [
-        "<library:real-debrid-token>",
+        "<library:RD:real-debrid-token>",
         "https://v3-cinemeta.strem.io/manifest.json",
-        "<scraper:real-debrid-token>"
+        "<scraper:RD:real-debrid-token>"
     ]
 }
 ```
