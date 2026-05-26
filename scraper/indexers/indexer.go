@@ -21,7 +21,7 @@ type Torrent struct {
 var imdbIndexers = []func(ctx context.Context, _ *sync.WaitGroup, id string, torrents chan Torrent){
 	scrapeEzTv,
 	//scrapeThePirateBay,
-	scrapeTorrentGalaxy,
+	//scrapeTorrentGalaxy,
 }
 
 var nameIndexers = []func(ctx context.Context, _ *sync.WaitGroup, name string, torrents chan Torrent){
