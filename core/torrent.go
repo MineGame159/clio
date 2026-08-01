@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"html"
 	"math"
 	"net/url"
 	"regexp"
@@ -25,6 +26,7 @@ var replacer = strings.NewReplacer(".", " ", "_", " ", "-", " ")
 
 func ParseTorrentName(name string) NameInfo {
 	name = strings.TrimSpace(name)
+	name = html.UnescapeString(name)
 
 	// Remove starting brace pairs
 
